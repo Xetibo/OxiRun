@@ -1,26 +1,9 @@
 [package]
-name = "oxipaste"
+name = "oxirun"
 version = "0.1.0"
 edition = "2021"
 description = "A clipboard manager daemon written in Rust."
 license = "GPL-3.0-only"
-
-[[bin]]
-name = "oxipaste_daemon"
-path = "src/daemon/main.rs"
-
-#[[bin]]
-#name = "oxipaste"
-#path = "src/ui/main.rs"
-
-[[bin]]
-name = "oxipaste_command_runner"
-path = "src/command_runner/main.rs"
-
-[[bin]]
-name = "oxipaste-iced"
-path = "src/iced-ui/main.rs"
-
 
 [dependencies]
 #dbus = "0.9.7"
