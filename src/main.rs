@@ -142,8 +142,7 @@ impl Application for OxiRun {
             }
             Message::Exit => std::process::exit(0),
             Message::LaunchEntry(entry) => {
-                dbg!(&entry.exec);
-                Command::new(entry.exec).exec();
+                Command::new("sh").arg("-c").arg(entry.exec).exec(); // TODO: remove hack & handle Freedesktop specification
                 std::process::exit(0)
             },
         }
