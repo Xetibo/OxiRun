@@ -1,9 +1,14 @@
+use std::os::unix::process::CommandExt;
+use std::process::Command;
+
+use freedesktop_desktop_entry::{default_paths, get_languages_from_env, Iter };
 use iced::keyboard::key::Named;
 use iced::widget::container::Style;
-use iced::widget::{container, Column};
+use iced::widget::{column, container, row, text, Column};
 use iced::{event, Alignment, Element, Renderer, Subscription, Task, Theme};
 use oxiced::theme::get_theme;
 use oxiced::widgets::common::darken_color;
+use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_text_input::text_input;
 
 use iced_layershell::actions::LayershellCustomActions;
@@ -30,6 +35,7 @@ pub fn main() -> Result<(), iced_layershell::Error> {
 struct OxiRun {
     theme: Theme,
     filter_text: String,
+    applications: Vec<EntryInfo>
 }
 
 impl Default for OxiRun {
@@ -37,6 +43,7 @@ impl Default for OxiRun {
         Self {
             theme: get_theme(),
             filter_text: "".into(),
+            applications: Vec::new(),
         }
     }
 }
@@ -45,6 +52,7 @@ impl Default for OxiRun {
 enum Message {
     SetFilterText(String),
     Exit,
+    LaunchEntry(EntryInfo),
 }
 
 impl TryInto<LayershellCustomActions> for Message {
@@ -76,6 +84,35 @@ fn wrap_in_rounded_box<'a>(
         .into()
 }
 
+#[derive(Debug, Clone)]
+struct EntryInfo {
+    pub name: String,
+    pub icon: Option<String>,
+    pub categories: Vec<String>,
+    pub exec: String
+}
+
+fn fetch_entries() -> Vec<EntryInfo> {
+    let locales = get_languages_from_env();
+
+    let entries = Iter::new(default_paths())
+        .entries(Some(&locales))
+        .filter_map(|entry| {
+            let name = entry.name(&locales).map(String::from)?;
+            let icon = entry.icon().map(String::from);
+            let categories = entry.categories().unwrap_or(Vec::new()).into_iter().map(String::from).collect();
+            let exec = entry.exec().map(String::from)?;
+            Some(EntryInfo{ name, icon, categories, exec })
+        })
+        .collect::<Vec<_>>();
+    entries
+}
+
+fn create_entry_card<'a>(entry : EntryInfo) -> Element<'a, Message> {
+    let btn = oxi_button::button(text(entry.name.clone()), ButtonVariant::Primary).on_press(Message::LaunchEntry(entry));
+    row!(btn).into()
+}
+
 impl Application for OxiRun {
     type Message = Message;
     type Flags = ();
@@ -83,8 +120,10 @@ impl Application for OxiRun {
     type Executor = iced::executor::Default;
 
     fn new(_flags: ()) -> (Self, Task<Message>) {
+        let applications = fetch_entries();
         (
             Self {
+                applications,
                 ..Default::default()
             },
             iced::widget::text_input::focus("search_box"),
@@ -101,19 +140,27 @@ impl Application for OxiRun {
                 self.filter_text = value;
                 Task::none()
             }
-            Message::Exit => std::process::exit(0)
+            Message::Exit => std::process::exit(0),
+            Message::LaunchEntry(entry) => {
+                dbg!(&entry.exec);
+                Command::new(entry.exec).exec();
+                std::process::exit(0)
+            },
         }
     }
 
     fn view(&self) -> Element<Message> {
+        let entries = self.applications.clone().into_iter().map(|entry| create_entry_card(entry)).collect::<Vec<_>>();
+        let entry_container = container(Column::from_vec(entries));
         wrap_in_rounded_box(
-            Column::new().push(
+            column!(
                 text_input(
                     "Enter text to find",
                     self.filter_text.as_str(),
                     Message::SetFilterText,
                 )
                 .id("search_box"),
+                entry_container
             ),
         )
     }
