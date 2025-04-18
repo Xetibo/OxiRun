@@ -1,14 +1,9 @@
-use std::fmt::Display;
-
 use iced::keyboard::key::Named;
 use iced::widget::container::Style;
-use iced::widget::{column, container, row, scrollable, Column, Row};
-use iced::{event, futures, Alignment, Color, Element, Length, Renderer, Task, Theme};
-use indexmap::IndexMap;
+use iced::widget::{container, Column};
+use iced::{event, Alignment, Element, Renderer, Subscription, Task, Theme};
 use oxiced::theme::get_theme;
 use oxiced::widgets::common::darken_color;
-use oxiced::widgets::oxi_button::{button, ButtonVariant};
-use oxiced::widgets::oxi_picklist::pick_list;
 use oxiced::widgets::oxi_text_input::text_input;
 
 use iced_layershell::actions::LayershellCustomActions;
@@ -49,6 +44,7 @@ impl Default for OxiRun {
 #[derive(Debug, Clone)]
 enum Message {
     SetFilterText(String),
+    Exit,
 }
 
 impl TryInto<LayershellCustomActions> for Message {
@@ -105,6 +101,7 @@ impl Application for OxiRun {
                 self.filter_text = value;
                 Task::none()
             }
+            Message::Exit => std::process::exit(0)
         }
     }
 
@@ -123,6 +120,20 @@ impl Application for OxiRun {
 
     fn theme(&self) -> Theme {
         self.theme.clone()
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+        event::listen_with(|event, _status, _id| match event {
+            iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                modifiers: _,
+                key: iced::keyboard::key::Key::Named(Named::Escape),
+                modified_key: _,
+                physical_key: _,
+                location: _,
+                text: _,
+            }) => Some(Message::Exit),
+            _ => None,
+        })
     }
 
     // remove the annoying background color
