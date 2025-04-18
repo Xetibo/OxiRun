@@ -2,10 +2,11 @@ use std::os::unix::process::CommandExt;
 use std::process::Command;
 
 use freedesktop_desktop_entry::{default_paths, get_languages_from_env, Iter };
+use iced::advanced::svg;
 use iced::keyboard::key::Named;
 use iced::widget::container::Style;
 use iced::widget::{column, container, row, text, Column};
-use iced::{event, Alignment, Element, Renderer, Subscription, Task, Theme};
+use iced::{event, Alignment, Element, Length, Renderer, Subscription, Task, Theme};
 use oxiced::theme::get_theme;
 use oxiced::widgets::common::darken_color;
 use oxiced::widgets::oxi_button::{self, ButtonVariant};
@@ -109,8 +110,14 @@ fn fetch_entries() -> Vec<EntryInfo> {
 }
 
 fn create_entry_card<'a>(entry : EntryInfo) -> Element<'a, Message> {
-    let btn = oxi_button::button(text(entry.name.clone()), ButtonVariant::Primary).on_press(Message::LaunchEntry(entry));
-    row!(btn).into()
+    let icon : Element<Message> = if let Some(icon) = &entry.icon {
+        let handle = iced::widget::svg::Handle::from_path(dbg!(icon));
+        row!(iced::widget::svg(handle)).into()
+    } else {
+        row!().into()
+    };
+    let btn = oxi_button::button(row!(icon, text(entry.name.clone())), ButtonVariant::Primary).on_press(Message::LaunchEntry(entry));
+    row!(btn).width(Length::Fill).into()
 }
 
 impl Application for OxiRun {
