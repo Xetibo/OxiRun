@@ -1,18 +1,10 @@
 {
   rustPlatform,
-  #rust-bin,
   pkg-config,
-  wrapGAppsHook4,
-  gtk4,
-  gtk4-layer-shell,
-  libadwaita,
-  dbus,
   libGL,
   libxkbcommon,
   wayland,
   libclang,
-  glib,
-  pango,
   cargo,
   cargo-watch,
   rustc,
@@ -45,29 +37,21 @@ in
 
     buildInputs = [
       pkg-config
-      gtk4
-      gtk4-layer-shell
-      libadwaita
-      dbus
       libGL
       libxkbcommon
       wayland
       libclang
-      glib
-      pango
     ];
 
     cargoLock = {
       inherit lockFile;
-      outputHashes = {
-        "oxiced-0.1.0" = "";
-      };
+      #outputHashes = {
+      #  "oxiced-0.1.0" = "";
+      #};
     };
 
     nativeBuildInputs = [
       pkg-config
-      #wrapGAppsHook4
-      #(rust-bin.selectLatestNightlyWith (toolchain: toolchain.default))
       wayland
       cargo
       cargo-watch
@@ -77,8 +61,6 @@ in
       libGL
       libxkbcommon
       libclang
-      glib
-      pango
     ];
 
     copyLibs = true;
@@ -98,18 +80,15 @@ in
         libXcursor
       ];
     in ''
-      patchelf --set-rpath "${libPath}" "$out/bin/oxipaste-iced"
-      patchelf --set-rpath "${libPath}" "$out/bin/oxipaste_daemon"
-      patchelf --set-rpath "${libPath}" "$out/bin/oxipaste_command_runner"
-      patchelf --set-rpath "${libPath}" "$out/bin/oxipaste-iced"
+      patchelf --set-rpath "${libPath}" "$out/bin/oxirun"
     '';
 
     meta = with lib; {
-      description = "A simple clipboard manager written in Rust and gtk4.";
-      homepage = "https://github.com/DashieTM/OxiPaste";
-      changelog = "https://github.com/DashieTM/OxiPaste/releases/tag/${version}";
+      description = "A simple application runner made with Iced";
+      homepage = "https://github.com/Xetibo/OxiRun";
+      changelog = "https://github.com/Xetibo/OxiRun/releases/tag/${version}";
       license = licenses.gpl3;
       maintainers = with maintainers; [DashieTM];
-      mainProgram = "oxipaste";
+      mainProgram = "oxirun";
     };
   }
