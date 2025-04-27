@@ -13,7 +13,6 @@
   libclang,
   glib,
   pango,
-
   cargo,
   cargo-watch,
   rustc,
@@ -28,8 +27,7 @@
   libXi,
   libXcursor,
   ...
-}:
-let
+}: let
   cargoToml = builtins.fromTOML (builtins.readFile ../Cargo.toml);
   libPath = lib.makeLibraryPath [
     libGL
@@ -39,56 +37,55 @@ let
     libclang
   ];
 in
-rustPlatform.buildRustPackage rec {
-  pname = cargoToml.package.name;
-  version = cargoToml.package.version;
+  rustPlatform.buildRustPackage rec {
+    pname = cargoToml.package.name;
+    version = cargoToml.package.version;
 
-  src = ../.;
+    src = ../.;
 
-  buildInputs = [
-    pkg-config
-    gtk4
-    gtk4-layer-shell
-    libadwaita
-    dbus
-    libGL
-    libxkbcommon
-    wayland
-    libclang
-    glib
-    pango
-  ];
+    buildInputs = [
+      pkg-config
+      gtk4
+      gtk4-layer-shell
+      libadwaita
+      dbus
+      libGL
+      libxkbcommon
+      wayland
+      libclang
+      glib
+      pango
+    ];
 
-  cargoLock = {
-    inherit lockFile;
-    #outputHashes = {
-    #  "oxiced-0.1.0" = "";
-    #};
-  };
+    cargoLock = {
+      inherit lockFile;
+      outputHashes = {
+        "oxiced-0.1.0" = "";
+      };
+    };
 
-  nativeBuildInputs = [
-    pkg-config
-    #wrapGAppsHook4
-    #(rust-bin.selectLatestNightlyWith (toolchain: toolchain.default))
-    wayland
-    cargo
-    cargo-watch
-    rustc
-    rust-analyzer
-    clippy
-    libGL
-    libxkbcommon
-    libclang
-    glib
-    pango
-  ];
+    nativeBuildInputs = [
+      pkg-config
+      #wrapGAppsHook4
+      #(rust-bin.selectLatestNightlyWith (toolchain: toolchain.default))
+      wayland
+      cargo
+      cargo-watch
+      rustc
+      rust-analyzer
+      clippy
+      libGL
+      libxkbcommon
+      libclang
+      glib
+      pango
+    ];
 
-  copyLibs = true;
-  LD_LIBRARY_PATH = libPath;
-  LIBCLANG_PATH = "${libclang.lib}/lib";
+    copyLibs = true;
+    LD_LIBRARY_PATH = libPath;
+    LIBCLANG_PATH = "${libclang.lib}/lib";
 
-  postFixup =
-    let
+    postFixup = let
       libPath = lib.makeLibraryPath [
         libGL
         vulkan-loader
@@ -100,20 +97,19 @@ rustPlatform.buildRustPackage rec {
         libXi
         libXcursor
       ];
-    in
-    ''
+    in ''
       patchelf --set-rpath "${libPath}" "$out/bin/oxipaste-iced"
       patchelf --set-rpath "${libPath}" "$out/bin/oxipaste_daemon"
       patchelf --set-rpath "${libPath}" "$out/bin/oxipaste_command_runner"
       patchelf --set-rpath "${libPath}" "$out/bin/oxipaste-iced"
     '';
 
-  meta = with lib; {
-    description = "A simple clipboard manager written in Rust and gtk4.";
-    homepage = "https://github.com/DashieTM/OxiPaste";
-    changelog = "https://github.com/DashieTM/OxiPaste/releases/tag/${version}";
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ DashieTM ];
-    mainProgram = "oxipaste";
-  };
-}
+    meta = with lib; {
+      description = "A simple clipboard manager written in Rust and gtk4.";
+      homepage = "https://github.com/DashieTM/OxiPaste";
+      changelog = "https://github.com/DashieTM/OxiPaste/releases/tag/${version}";
+      license = licenses.gpl3;
+      maintainers = with maintainers; [DashieTM];
+      mainProgram = "oxipaste";
+    };
+  }
