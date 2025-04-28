@@ -1,25 +1,21 @@
-self:
-{
+self: {
   config,
   pkgs,
   lib,
-  hm,
   ...
-}:
-let
-  cfg = config.programs.oxipaste;
+}: let
+  cfg = config.programs.oxirun;
   defaultPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-in
-{
-  meta.maintainers = with lib.maintainers; [ DashieTM ];
-  options.programs.oxipaste = with lib; {
-    enable = mkEnableOption "oxipaste";
+in {
+  meta.maintainers = with lib.maintainers; [DashieTM];
+  options.programs.oxirun = with lib; {
+    enable = mkEnableOption "oxirun";
 
     package = mkOption {
       type = with types; nullOr package;
       default = defaultPackage;
       defaultText = lib.literalExpression ''
-        oxipaste.packages.''${pkgs.stdenv.hostPlatform.system}.default
+        oxirun.packages.''${pkgs.stdenv.hostPlatform.system}.default
       '';
       description = mdDoc ''
         Package to run
