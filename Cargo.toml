@@ -7,11 +7,10 @@ license = "GPL-3.0-only"
 
 [dependencies]
 oxilib = "0.1.2"
-oxiced = { git = "https://github.com/Xetibo/oxiced", branch = "dashie" }
-#oxiced = "0.2.0"
+oxiced = "0.3.0"
 iced = { version = "0.13.1", features = ["advanced", "canvas", "image", "svg"] }
 iced_layershell = "0.13.5"
 xdg = "2.5.2"
-freedesktop-desktop-entry = "0.7.10"
-freedesktop-icons = "0.4.0"
 fuzzy-matcher = "0.3.7"
+toml = "0.8.21"
+serde = "1.0.219"

@@ -1,38 +1,45 @@
-use std::ops::Add;
-use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
-use std::process::Command;
+use std::sync::Arc;
 
-use freedesktop_desktop_entry::{Iter, default_paths, get_languages_from_env};
-use fuzzy_matcher::FuzzyMatcher;
+use applications::{
+    EntryInfo, ScoredEntryInfo, create_entry_card, fetch_entries, run_command, sort_appliations,
+};
+use config::{Config, get_config};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
-use iced::widget::container::Style;
-use iced::widget::{Column, Row, column, container, text};
-use iced::{Alignment, Element, Length, Renderer, Subscription, Task, Theme, event};
+use iced::widget::{Column, column};
+use iced::{Element, Length, Subscription, Task, Theme, event};
 use oxiced::theme::get_theme;
-use oxiced::widgets::common::{darken_color, lighten_color};
-use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_text_input::text_input;
 
 use iced_layershell::Application;
 use iced_layershell::actions::LayershellCustomActions;
 use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
 use iced_layershell::settings::{LayerShellSettings, Settings};
+use utils::{FocusDirection, MEDIUM_SPACING, wrap_in_rounded_box};
+
+mod applications;
+mod config;
+mod utils;
 
 // TODO make this configurable
-const ENTRY_AMOUNT: usize = 6;
+const ICON_SIZE: f32 = 50.0;
+const SORT_THRESHOLD: i64 = 25;
+const SCALE_FACTOR: f64 = 1.0;
+const WINDOW_SIZE: (u32, u32) = (600, 600);
+const WINDOW_MARGINS: (i32, i32, i32, i32) = (100, 100, 100, 100);
+const WINDOW_LAYER: Layer = Layer::Overlay;
+const WINDOW_KEYBAORD_MODE: KeyboardInteractivity = KeyboardInteractivity::Exclusive;
 
 pub fn main() -> Result<(), iced_layershell::Error> {
     let settings = Settings {
         layer_settings: LayerShellSettings {
-            size: Some((600, 600)),
+            size: Some(WINDOW_SIZE),
             exclusive_zone: 0,
             anchor: Anchor::Left | Anchor::Right,
-            layer: Layer::Overlay,
-            margin: (100, 100, 100, 100),
-            keyboard_interactivity: KeyboardInteractivity::Exclusive,
+            layer: WINDOW_LAYER,
+            margin: WINDOW_MARGINS,
+            keyboard_interactivity: WINDOW_KEYBAORD_MODE,
             ..Default::default()
         },
         ..Default::default()
@@ -44,8 +51,10 @@ struct OxiRun {
     theme: Theme,
     filter_text: String,
     applications: Vec<EntryInfo>,
-    sorted_applications: Vec<EntryInfo>,
+    sorted_applications: Vec<ScoredEntryInfo>,
+    fuzzy_matcher: Arc<SkimMatcherV2>,
     current_focus: usize,
+    config: Config,
 }
 
 impl Default for OxiRun {
@@ -55,30 +64,9 @@ impl Default for OxiRun {
             filter_text: "".into(),
             applications: Vec::new(),
             sorted_applications: Vec::new(),
+            fuzzy_matcher: Arc::new(SkimMatcherV2::default()), // TODO should this be async as well?
             current_focus: 0,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum FocusDirection {
-    Up,
-    Down,
-}
-
-impl Add<usize> for FocusDirection {
-    type Output = usize;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        match self {
-            FocusDirection::Up => {
-                if rhs > 0 {
-                    rhs - 1
-                } else {
-                    ENTRY_AMOUNT - 1
-                }
-            }
-            FocusDirection::Down => (rhs + 1) % ENTRY_AMOUNT,
+            config: Config::default(),
         }
     }
 }
@@ -90,6 +78,8 @@ enum Message {
     LaunchEntry(EntryInfo),
     LaunchFocusedEntry,
     MoveApplicationFocus(FocusDirection),
+    ReceiveEntries(Vec<EntryInfo>),
+    ReceiveSortedEntries(Vec<ScoredEntryInfo>),
 }
 
 impl TryInto<LayershellCustomActions> for Message {
@@ -99,105 +89,6 @@ impl TryInto<LayershellCustomActions> for Message {
     }
 }
 
-fn box_style(theme: &Theme) -> Style {
-    let palette = theme.extended_palette();
-    Style {
-        background: Some(iced::Background::Color(darken_color(
-            palette.background.base.color,
-        ))),
-        border: iced::border::rounded(10),
-        ..container::rounded_box(theme)
-    }
-}
-
-fn wrap_in_rounded_box<'a>(
-    content: impl Into<Element<'a, Message, Theme, Renderer>>,
-) -> Element<'a, Message> {
-    container(content)
-        .style(box_style)
-        .align_x(Alignment::Center)
-        .padding(50)
-        .max_width(550)
-        .width(Length::Fill)
-        .into()
-}
-
-#[derive(Debug, Clone)]
-struct EntryInfo {
-    pub name: String,
-    pub icon: Option<PathBuf>,
-    pub _categories: Vec<String>,
-    pub exec: String,
-}
-
-fn fetch_entries() -> Vec<EntryInfo> {
-    let locales = get_languages_from_env();
-
-    fn get_icon_path(icon_str: &str) -> Option<PathBuf> {
-        let icon_source = freedesktop_desktop_entry::IconSource::from_unknown(icon_str);
-        match icon_source {
-            freedesktop_desktop_entry::IconSource::Name(name) => {
-                freedesktop_icons::lookup(&name).find()
-            }
-            freedesktop_desktop_entry::IconSource::Path(path) => Some(path),
-        }
-    }
-
-    let entries = Iter::new(default_paths())
-        .entries(Some(&locales))
-        .filter_map(|entry| {
-            let name = entry.name(&locales).map(String::from)?;
-            let icon = entry.icon().and_then(get_icon_path);
-            let categories = entry
-                .categories()
-                .unwrap_or_default()
-                .into_iter()
-                .map(String::from)
-                .collect();
-            let exec = entry.exec().map(String::from)?;
-            Some(EntryInfo {
-                name,
-                icon,
-                _categories: categories,
-                exec,
-            })
-        })
-        .collect::<Vec<_>>();
-    entries
-}
-
-fn create_entry_card<'a>(
-    focused_index: usize,
-    (index, entry): (usize, EntryInfo),
-) -> Element<'a, Message> {
-    let icon = entry
-        .icon
-        .as_ref()
-        .map(|icon| iced::widget::image(icon).height(Length::Fixed(75.0)));
-    let content = Row::new()
-        .push_maybe(icon)
-        .push(container(text(entry.name.clone())).align_right(Length::Fill));
-    oxi_button::button(content, ButtonVariant::Primary)
-        .on_press(Message::LaunchEntry(entry))
-        .style(move |theme, status| {
-            let is_focused = index == focused_index;
-            let palette = theme.extended_palette().primary;
-            let default_style = oxi_button::primary_button(theme, status);
-            let background = if is_focused {
-                default_style.background
-            } else {
-                Some(iced::Background::Color(lighten_color(palette.base.color)))
-            };
-            iced::widget::button::Style {
-                background,
-                ..default_style
-            }
-        })
-        .width(Length::Fill)
-        .height(Length::Fixed(50.0))
-        .into()
-}
-
 impl Application for OxiRun {
     type Message = Message;
     type Flags = ();
@@ -205,14 +96,16 @@ impl Application for OxiRun {
     type Executor = iced::executor::Default;
 
     fn new(_flags: ()) -> (Self, Task<Message>) {
-        let applications = fetch_entries();
+        let config = get_config();
         (
             Self {
-                sorted_applications: applications.clone(),
-                applications,
+                config: config.clone(),
                 ..Default::default()
             },
-            iced::widget::text_input::focus("search_box"),
+            Task::batch([
+                iced::widget::text_input::focus("search_box"),
+                Task::future(fetch_entries(config)),
+            ]),
         )
     }
 
@@ -224,31 +117,36 @@ impl Application for OxiRun {
         match message {
             Message::SetFilterText(value) => {
                 self.filter_text = value;
-                let matcher = SkimMatcherV2::default();
-                let mut sorted_applications = self.applications.clone();
-                sorted_applications.sort_by(|first, second| {
-                    matcher
-                        .fuzzy_match(&second.name, &self.filter_text)
-                        .cmp(&matcher.fuzzy_match(&first.name, &self.filter_text))
-                });
-                self.sorted_applications = sorted_applications;
+                let entries = self.applications.clone();
+                let filter_text = self.filter_text.clone();
+                let matcher = self.fuzzy_matcher.clone();
+                Task::future(sort_appliations(entries, filter_text, matcher))
+            }
+            Message::ReceiveSortedEntries(sorted_entries) => {
+                self.sorted_applications = sorted_entries;
                 Task::none()
             }
             Message::Exit => std::process::exit(0),
             Message::LaunchEntry(entry) => {
-                Command::new("sh").arg("-c").arg(entry.exec).exec(); // TODO: remove hack & handle Freedesktop specification
+                run_command(&entry.exec);
                 std::process::exit(0)
             }
             Message::MoveApplicationFocus(direction) => {
-                self.current_focus = direction + self.current_focus;
+                self.current_focus =
+                    direction.add(self.current_focus, self.sorted_applications.len());
                 iced::widget::focus_next()
             }
             Message::LaunchFocusedEntry => {
-                if let Some(entry) = self.sorted_applications.get(self.current_focus) {
-                    Command::new("sh").arg("-c").arg(entry.exec.clone()).exec();
-                    // TODO: remove hack & handle Freedesktop specification
+                if let Some(scored_entry) = self.sorted_applications.get(self.current_focus) {
+                    run_command(&scored_entry.entry.exec);
                 }
                 std::process::exit(0)
+            }
+            Message::ReceiveEntries(entry_infos) => {
+                self.applications = entry_infos.clone();
+                let filter_text = self.filter_text.clone();
+                let matcher = self.fuzzy_matcher.clone();
+                Task::future(sort_appliations(entry_infos, filter_text, matcher))
             }
         }
     }
@@ -258,11 +156,15 @@ impl Application for OxiRun {
             .sorted_applications
             .clone()
             .into_iter()
-            .take(ENTRY_AMOUNT)
+            .take(self.config.max_entries)
             .enumerate()
-            .map(|data| create_entry_card(self.current_focus, data))
+            .map(|(index, scored_entry)| {
+                create_entry_card(self.current_focus, (index, scored_entry.entry))
+            })
             .collect::<Vec<_>>();
-        let entry_container = Column::from_vec(entries).width(Length::Fill).spacing(10);
+        let entry_container = Column::from_vec(entries)
+            .width(Length::Fill)
+            .spacing(MEDIUM_SPACING);
         wrap_in_rounded_box(
             column!(
                 text_input(
@@ -273,7 +175,8 @@ impl Application for OxiRun {
                 .id("search_box"),
                 entry_container
             )
-            .width(Length::Fill),
+            .width(Length::Fill)
+            .spacing(MEDIUM_SPACING),
         )
     }
 
@@ -282,7 +185,7 @@ impl Application for OxiRun {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        event::listen_with(|event, _status, _id| match event {
+        event::listen_with(move |event, _status, _id| match event {
             iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                 modifiers: modifier,
                 key: iced::keyboard::key::Key::Named(key),
@@ -313,6 +216,6 @@ impl Application for OxiRun {
     }
 
     fn scale_factor(&self) -> f64 {
-        1.0
+        SCALE_FACTOR
     }
 }
