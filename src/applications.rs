@@ -243,9 +243,13 @@ pub async fn fetch_entries(config: Config) -> Message {
     let dir_iter = DATA_DIRS
         .into_iter()
         .map(|val| {
-            // TODO handle error
-            let dirs = env::var(val).expect("Failed to get data dirs");
-            dirs.split(":").map(String::from).collect::<Vec<String>>()
+            let dirs_res = env::var(val);
+            if let Ok(dirs) = dirs_res {
+                dirs.split(":").map(String::from).collect::<Vec<String>>()
+            } else {
+                // TODO handle error
+                Vec::new()
+            }
         })
         .flatten();
 
