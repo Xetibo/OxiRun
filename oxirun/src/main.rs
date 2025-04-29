@@ -1,63 +1,34 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use applications::{
-    EntryInfo, ScoredEntryInfo, create_entry_card, fetch_entries, run_command, sort_appliations,
-};
-use config::{Config, get_config, get_oxirun_dir};
-use fuzzy_matcher::skim::SkimMatcherV2;
+use config::{get_allowed_plugins, get_config, get_oxirun_dir};
 use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
-use iced::widget::{Column, column};
+use iced::widget::Column;
 use iced::{Element, Length, Subscription, Task, Theme, event};
-use oxiced::any_send::OxiAny;
 use oxiced::theme::get_theme;
+use oxiced::widgets::common::lighten_color;
+use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_text_input::text_input;
 
 use iced_layershell::Application;
 use iced_layershell::actions::LayershellCustomActions;
 use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
 use iced_layershell::settings::{LayerShellSettings, Settings};
-use plugins::load_plugin;
+use plugins::{PluginFuncs, PluginModel, PluginMsg, load_plugin};
+use toml::Table;
 use utils::{FocusDirection, MEDIUM_SPACING, wrap_in_rounded_box};
 
-mod applications;
 mod config;
 mod plugins;
 mod utils;
 
 // TODO make this configurable
 const ICON_SIZE: f32 = 50.0;
-const SORT_THRESHOLD: i64 = 25;
 const SCALE_FACTOR: f64 = 1.0;
 const WINDOW_SIZE: (u32, u32) = (600, 600);
 const WINDOW_MARGINS: (i32, i32, i32, i32) = (100, 100, 100, 100);
 const WINDOW_LAYER: Layer = Layer::Overlay;
 const WINDOW_KEYBAORD_MODE: KeyboardInteractivity = KeyboardInteractivity::Exclusive;
-
-#[derive(Clone, Debug)]
-pub struct PluginFuncs {
-    pub model: libloading::Symbol<
-        'static,
-        unsafe extern "C" fn() -> (
-            &'static mut dyn OxiAny,
-            Option<Task<&'static mut dyn OxiAny>>,
-        ),
-    >,
-    pub update: libloading::Symbol<
-        'static,
-        unsafe extern "C" fn(
-            data: &&mut dyn OxiAny,
-            msg: &dyn OxiAny,
-        ) -> Option<Task<&'static dyn OxiAny>>,
-    >,
-    pub view: libloading::Symbol<
-        'static,
-        unsafe extern "C" fn(
-            data: &dyn OxiAny,
-        ) -> Result<Element<&'static mut dyn OxiAny>, std::io::Error>,
-    >,
-}
 
 pub fn main() -> Result<(), iced_layershell::Error> {
     let settings = Settings {
@@ -78,12 +49,9 @@ pub fn main() -> Result<(), iced_layershell::Error> {
 struct OxiRun {
     theme: Theme,
     filter_text: String,
-    applications: Vec<EntryInfo>,
-    plugins: HashMap<usize, (&'static mut dyn OxiAny, PluginFuncs)>,
-    sorted_applications: Vec<ScoredEntryInfo>,
-    fuzzy_matcher: Arc<SkimMatcherV2>,
+    plugins: HashMap<usize, (PluginModel, PluginFuncs)>,
     current_focus: usize,
-    config: Config,
+    _config: Table, // TODO use
 }
 
 impl Default for OxiRun {
@@ -91,12 +59,9 @@ impl Default for OxiRun {
         Self {
             theme: get_theme(),
             filter_text: "".into(),
-            applications: Vec::new(),
             plugins: HashMap::new(),
-            sorted_applications: Vec::new(),
-            fuzzy_matcher: Arc::new(SkimMatcherV2::default()), // TODO should this be async as well?
             current_focus: 0,
-            config: Config::default(),
+            _config: Table::new(),
         }
     }
 }
@@ -105,13 +70,11 @@ impl Default for OxiRun {
 enum Message {
     SetFilterText(String),
     Exit,
-    LaunchEntry(EntryInfo),
+    LaunchEntry(usize),
     LaunchFocusedEntry,
     MoveApplicationFocus(FocusDirection),
-    ReceiveEntries(Vec<EntryInfo>),
-    ReceiveSortedEntries(Vec<ScoredEntryInfo>),
-    PluginMsg(usize, Arc<&'static mut dyn OxiAny>),
-    ErrorMsg, // TODO use
+    PluginSubMsg(usize, PluginMsg),
+    _ErrorMsg, // TODO use
 }
 
 impl TryInto<LayershellCustomActions> for Message {
@@ -121,8 +84,10 @@ impl TryInto<LayershellCustomActions> for Message {
     }
 }
 
-fn get_plugins() -> (
-    HashMap<usize, (&'static mut dyn OxiAny, PluginFuncs)>,
+fn get_plugins(
+    config: &Table,
+) -> (
+    HashMap<usize, (PluginModel, PluginFuncs)>,
     Vec<Task<Message>>,
 ) {
     let mut plugins = HashMap::new();
@@ -132,6 +97,7 @@ fn get_plugins() -> (
     if !plugin_dir.is_dir() {
         std::fs::create_dir(&plugin_dir).expect("Could not create config dir");
     }
+    let allowed_files = get_allowed_plugins(&config);
     for (index, res) in plugin_dir
         .read_dir()
         .expect("Could not read plugin directory")
@@ -139,27 +105,17 @@ fn get_plugins() -> (
     {
         match res {
             Ok(file) => {
-                if file
-                    .file_name()
-                    .to_str()
-                    .unwrap_or_default()
-                    .ends_with(".so")
-                {
+                if allowed_files.contains(&file.file_name().to_str().unwrap_or("")) {
                     unsafe {
                         let lib = Box::leak(Box::new(
                             libloading::Library::new(&file.path()).expect("Could not load library"),
                         ));
                         if let Some(plugin) = load_plugin(lib) {
-                            let (model, task_opt) = (plugin.model.clone())();
+                            let (model, task_opt) = (plugin.model.clone())(config.clone());
                             plugins.insert(index, (model, plugin));
-                            if let Some(task) = task_opt.map(|val| {
-                                val.map(|inner| {
-                                    inner
-                                        .downcast_ref::<Message>()
-                                        .unwrap_or(&Message::ErrorMsg)
-                                        .clone()
-                                })
-                            }) {
+                            if let Some(task) = task_opt
+                                .map(|val| val.map(move |msg| Message::PluginSubMsg(index, msg)))
+                            {
                                 tasks.push(task)
                             }
                         }
@@ -172,6 +128,71 @@ fn get_plugins() -> (
     (plugins, tasks)
 }
 
+fn content_button(
+    focused_index: usize,
+    current_index: usize,
+    content: Element<Message>,
+) -> Element<Message> {
+    oxi_button::button(content, ButtonVariant::Primary)
+        .on_press(Message::LaunchEntry(current_index))
+        .style(move |theme, status| {
+            let is_focused = current_index == focused_index;
+            let palette = theme.extended_palette().primary;
+            let default_style = oxi_button::primary_button(theme, status);
+            let background = if is_focused {
+                default_style.background
+            } else {
+                Some(iced::Background::Color(lighten_color(palette.base.color)))
+            };
+            iced::widget::button::Style {
+                background,
+                ..default_style
+            }
+        })
+        .padding(5.0)
+        .width(Length::Fill)
+        .height(Length::Fixed(ICON_SIZE))
+        .into()
+}
+
+fn plugin_launch(model: &mut OxiRun, focused_index: usize) -> Vec<Task<Message>> {
+    model
+        .plugins
+        .iter_mut()
+        .filter_map(|(index, (plugin_model, funcs))| {
+            let index = *index;
+            let launch_func = funcs.launch.clone();
+            let task_opt = unsafe { (launch_func)(focused_index, plugin_model.clone()) };
+            task_opt.map(move |task| task.map(move |msg| Message::PluginSubMsg(index, msg)))
+        })
+        .collect::<Vec<_>>()
+}
+
+fn plugin_sort(model: &mut OxiRun, filter_text: String) -> Vec<Task<Message>> {
+    model
+        .plugins
+        .iter_mut()
+        .filter_map(|(index, (plugin_model, funcs))| {
+            let index = *index;
+            let sort_func = funcs.sort.clone();
+            let task_opt = unsafe { (sort_func)(filter_text.clone(), plugin_model.clone()) };
+            task_opt.map(move |task| task.map(move |msg| Message::PluginSubMsg(index, msg)))
+        })
+        .collect::<Vec<_>>()
+}
+
+fn plugin_count(model: &mut OxiRun) -> usize {
+    model
+        .plugins
+        .iter_mut()
+        .map(|(_, (model, funcs))| {
+            let count_func = funcs.count.clone();
+            unsafe { (count_func)(model.clone()) }
+        })
+        .max()
+        .unwrap_or(0)
+}
+
 impl Application for OxiRun {
     type Message = Message;
     type Flags = ();
@@ -180,12 +201,11 @@ impl Application for OxiRun {
 
     fn new(_flags: ()) -> (Self, Task<Message>) {
         let config = get_config();
-        let (plugins, mut plugin_tasks) = get_plugins();
+        let (plugins, mut plugin_tasks) = get_plugins(&config);
         plugin_tasks.push(iced::widget::text_input::focus("search_box"));
-        plugin_tasks.push(Task::future(fetch_entries(config.clone())));
         (
             Self {
-                config,
+                _config: config,
                 plugins,
                 ..Default::default()
             },
@@ -200,53 +220,34 @@ impl Application for OxiRun {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::SetFilterText(value) => {
-                self.filter_text = value;
-                let entries = self.applications.clone();
-                let filter_text = self.filter_text.clone();
-                let matcher = self.fuzzy_matcher.clone();
-                Task::future(sort_appliations(entries, filter_text, matcher))
-            }
-            Message::ReceiveSortedEntries(sorted_entries) => {
-                self.sorted_applications = sorted_entries;
-                Task::none()
+                self.filter_text = value.clone();
+                Task::batch(plugin_sort(self, value))
             }
             Message::Exit => std::process::exit(0),
-            Message::LaunchEntry(entry) => {
-                run_command(&entry.exec);
-                std::process::exit(0)
+            Message::LaunchEntry(focused_index) => {
+                let tasks = plugin_launch(self, focused_index);
+                Task::batch(tasks).chain(Task::done(Message::Exit))
             }
             Message::MoveApplicationFocus(direction) => {
-                self.current_focus =
-                    direction.add(self.current_focus, self.sorted_applications.len());
+                self.current_focus = direction.add(self.current_focus, plugin_count(self));
                 iced::widget::focus_next()
             }
             Message::LaunchFocusedEntry => {
-                if let Some(scored_entry) = self.sorted_applications.get(self.current_focus) {
-                    run_command(&scored_entry.entry.exec);
-                }
-                std::process::exit(0)
+                let tasks = plugin_launch(self, self.current_focus);
+                Task::batch(tasks).chain(Task::done(Message::Exit))
             }
-            Message::ReceiveEntries(entry_infos) => {
-                self.applications = entry_infos.clone();
-                let filter_text = self.filter_text.clone();
-                let matcher = self.fuzzy_matcher.clone();
-                Task::future(sort_appliations(entry_infos, filter_text, matcher))
-            }
-            Message::PluginMsg(index, msg) => unsafe {
-                let plugin = self.plugins.get(&index).unwrap();
+            Message::PluginSubMsg(index, msg) => unsafe {
+                let plugin = self.plugins.get_mut(&index).unwrap();
                 let update_func = plugin.1.update.clone();
-                let task_opt = (update_func)(&plugin.0, &msg);
+                let task_opt = (update_func)(self.filter_text.clone(), plugin.0.clone(), msg);
                 if let Some(task) = task_opt {
-                    task.map(|val| {
-                        val.downcast_ref::<Message>()
-                            .expect("Could not get follow up task from plugin")
-                            .clone()
-                    })
+                    task.map(move |msg| Message::PluginSubMsg(index, msg))
                 } else {
                     Task::none()
                 }
             },
-            Message::ErrorMsg => {
+            Message::_ErrorMsg => {
+                // TODO show error to user
                 println!("error occurred");
                 Task::none()
             }
@@ -254,28 +255,36 @@ impl Application for OxiRun {
     }
 
     fn view(&self) -> Element<Message> {
-        let entries = self
-            .sorted_applications
-            .clone()
-            .into_iter()
-            .take(self.config.max_entries)
-            .enumerate()
-            .map(|(index, scored_entry)| {
-                create_entry_card(self.current_focus, (index, scored_entry.entry))
+        let plugin_views = self
+            .plugins
+            .iter()
+            .map(|(index, (model, funcs))| {
+                let view_func = funcs.view.clone();
+                let view_res = unsafe { (view_func)(model.clone()) };
+                match view_res {
+                    Ok(view) => {
+                        let mut combined = view
+                            .into_iter()
+                            .map(move |(score, element)| {
+                                (
+                                    score,
+                                    element.map(|msg| Message::PluginSubMsg(*index, msg.clone())),
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        // TODO do we NEED to sort again? it shouldn't sort more than a bit more
+                        // than max entries -> all matching plugin entries but still annoying
+                        combined.sort_by(|first, second| second.0.cmp(&first.0));
+                        combined.into_iter().map(|val| val.1).collect::<Vec<_>>()
+                    }
+                    // TODO use error
+                    Err(_) => Vec::new(),
+                }
             })
+            .flatten()
+            .enumerate()
+            .map(|(elem_index, val)| content_button(self.current_focus, elem_index, val))
             .collect::<Vec<_>>();
-        //let entry_container = Column::from_vec(entries)
-        //    .width(Length::Fill)
-        //    .spacing(MEDIUM_SPACING);
-
-        let plugin_views = self.plugins.iter().map(|(index, (model, funcs))| {
-            let view_func = funcs.view.clone();
-            let view_res = unsafe { (view_func)(model) };
-            match view_res {
-                Ok(view) => Ok(view.map(move |msg| Message::PluginMsg(*index, Arc::new(msg)))),
-                Err(err) => Err(err),
-            }
-        });
         let mut col = Column::new();
         col = col.push(
             text_input(
@@ -285,9 +294,8 @@ impl Application for OxiRun {
             )
             .id("search_box"),
         );
-        for plugin_view in plugin_views {
-            // TODO handle error
-            col = col.push_maybe(plugin_view.ok());
+        for entry in plugin_views {
+            col = col.push(entry);
         }
         wrap_in_rounded_box(col.width(Length::Fill).spacing(MEDIUM_SPACING))
     }

@@ -2586,18 +2586,9 @@ dependencies = [
  "optional_struct",
  "oxiced",
  "oxilib",
- "oxirun-plugins",
  "serde",
  "toml",
  "xdg",
-]
-
-[[package]]
-name = "oxirun-plugins"
-version = "0.1.0"
-dependencies = [
- "iced",
- "oxiced",
 ]
 
 [[package]]

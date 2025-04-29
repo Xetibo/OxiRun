@@ -1,45 +1,111 @@
+use std::{cell::RefCell, sync::Arc};
+
 use iced::{Element, Task};
 use libloading::Library;
 use oxiced::any_send::OxiAny;
+use toml::Table;
 
-use crate::PluginFuncs;
+pub type PluginModel = Arc<RefCell<&'static mut dyn OxiAny>>;
+pub type PluginMsg = Arc<&'static mut dyn OxiAny>;
+
+#[allow(improper_ctypes_definitions)]
+#[derive(Clone, Debug)]
+pub struct PluginFuncs {
+    pub model: libloading::Symbol<
+        'static,
+        unsafe extern "C" fn(Table) -> (PluginModel, Option<Task<PluginMsg>>),
+    >,
+    pub update: libloading::Symbol<
+        'static,
+        unsafe extern "C" fn(
+            filter_text: String,
+            model: PluginModel,
+            msg: PluginMsg,
+        ) -> Option<Task<PluginMsg>>,
+    >,
+    pub sort: libloading::Symbol<
+        'static,
+        unsafe extern "C" fn(filter_text: String, model: PluginModel) -> Option<Task<PluginMsg>>,
+    >,
+    pub launch: libloading::Symbol<
+        'static,
+        unsafe extern "C" fn(focused_index: usize, model: PluginModel) -> Option<Task<PluginMsg>>,
+    >,
+    /// The i64 represents the score of each element, this can also be used to ensure your plugin is at
+    /// the top or close to the top
+    pub view: libloading::Symbol<
+        'static,
+        unsafe extern "C" fn(
+            model: PluginModel,
+        )
+            -> Result<Vec<(i64, Element<'static, PluginMsg>)>, std::io::Error>,
+    >,
+    pub count: libloading::Symbol<'static, unsafe extern "C" fn(model: PluginModel) -> usize>,
+}
 
 pub fn load_plugin(lib: &'static Library) -> Option<PluginFuncs> {
     unsafe {
         let model: Result<
             libloading::Symbol<
-                unsafe extern "C" fn() -> (
-                    &'static mut dyn OxiAny,
-                    Option<Task<&'static mut dyn OxiAny>>,
-                ),
+                unsafe extern "C" fn(Table) -> (PluginModel, Option<Task<PluginMsg>>),
             >,
             libloading::Error,
         > = lib.get(b"model");
         let update: Result<
             libloading::Symbol<
                 unsafe extern "C" fn(
-                    data: &&mut dyn OxiAny,
-                    msg: &dyn OxiAny,
-                ) -> Option<Task<&'static dyn OxiAny>>,
+                    filter_text: String,
+                    model: Arc<RefCell<&mut dyn OxiAny>>,
+                    msg: PluginMsg,
+                ) -> Option<Task<PluginMsg>>,
             >,
             libloading::Error,
         > = lib.get(b"update");
+        let sort: Result<
+            libloading::Symbol<
+                unsafe extern "C" fn(
+                    filter_text: String,
+                    model: PluginModel,
+                ) -> Option<Task<PluginMsg>>,
+            >,
+            libloading::Error,
+        > = lib.get(b"sort");
+        let launch: Result<
+            libloading::Symbol<
+                unsafe extern "C" fn(
+                    focused_index: usize,
+                    model: PluginModel,
+                ) -> Option<Task<PluginMsg>>,
+            >,
+            libloading::Error,
+        > = lib.get(b"launch");
         let view: Result<
             libloading::Symbol<
                 unsafe extern "C" fn(
-                    data: &dyn OxiAny,
-                )
-                    -> Result<Element<&'static mut dyn OxiAny>, std::io::Error>,
+                    model: PluginModel,
+                ) -> Result<
+                    Vec<(i64, Element<'static, PluginMsg>)>,
+                    std::io::Error,
+                >,
             >,
             libloading::Error,
         > = lib.get(b"view");
+        let count: Result<
+            libloading::Symbol<unsafe extern "C" fn(model: PluginModel) -> usize>,
+            libloading::Error,
+        > = lib.get(b"count");
 
-        match (model, update, view) {
-            (Ok(model), Ok(update), Ok(view)) => Some(PluginFuncs {
-                model,
-                update,
-                view,
-            }),
+        match (model, update, sort, launch, view, count) {
+            (Ok(model), Ok(update), Ok(sort), Ok(launch), Ok(view), Ok(count)) => {
+                Some(PluginFuncs {
+                    model,
+                    update,
+                    view,
+                    sort,
+                    launch,
+                    count,
+                })
+            }
             _ => None,
         }
     }

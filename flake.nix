@@ -56,6 +56,8 @@
           lockFile = ./oxirun/Cargo.lock;
         in rec {
           oxirun = pkgs.callPackage ./nix/default.nix {inherit inputs lockFile;};
+          oxirun-applications = pkgs.callPackage ./nix/applications.nix {inherit inputs;};
+          # TODO check if this can be improved to immediately use plugins as well?
           default = oxirun;
         };
       };

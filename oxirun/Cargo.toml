@@ -6,7 +6,6 @@ description = "A clipboard manager daemon written in Rust."
 license = "GPL-3.0-only"
 
 [dependencies]
-oxirun-plugins = { path = "../oxirun-plugins" }
 oxilib = "0.1.2"
 oxiced = "0.4.0"
 iced = { version = "0.13.1", features = ["advanced", "canvas", "image", "svg"] }

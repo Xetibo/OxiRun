@@ -1,8 +1,0 @@
-[package]
-name = "oxirun-plugins"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-oxiced = "0.4.0"
-iced = "0.13.1"

@@ -1,52 +1,28 @@
-use std::{
-    fs,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::{fs, io::Read, path::PathBuf};
 
-use optional_struct::{Applicable, optional_struct};
-use serde::{Deserialize, Serialize};
+use toml::Table;
 
-#[optional_struct]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
-    pub max_entries: usize,
-    pub terminal: String,
-    pub plugin_dir: String,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            max_entries: 7,
-            terminal: String::from("kitty"),
-            plugin_dir: String::from("default"),
-        }
+pub fn get_allowed_plugins<'a>(config: &'a Table) -> Vec<&'a str> {
+    match config.get("plugins") {
+        Some(toml::Value::Array(values)) => values
+            .into_iter()
+            .filter_map(|value| match value {
+                toml::Value::String(name) => Some(name.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>(),
+        _ => Vec::new(),
     }
 }
 
-fn create_default_config(oxirun_config: &PathBuf) -> Config {
-    let default_config = Config::default();
-    let default_config_toml = toml::to_string(&default_config).expect("Could not serialize config");
-    fs::File::options()
-        .create(true)
-        .write(true)
-        .open(oxirun_config)
-        .expect("Could not create config file")
-        .write(&default_config_toml.into_bytes())
-        .expect("Could not write into config file");
-    default_config
-}
-
-fn read_config(oxirun_config: &PathBuf) -> Config {
+fn read_config(oxirun_config: &PathBuf) -> Table {
     let mut read_config = String::new();
     let mut file = fs::File::open(oxirun_config).expect("Could not open config file");
     let _ = file
         .read_to_string(&mut read_config)
         .expect("Could not read config file");
-    let config: OptionalConfig =
-        toml::from_str(&read_config).expect("Could not deserialize config");
-    config.build(Config::default())
+    let config = toml::from_str(&read_config).expect("Could not deserialize config");
+    config
 }
 
 pub fn get_oxirun_dir() -> PathBuf {
@@ -59,11 +35,11 @@ pub fn get_oxirun_dir() -> PathBuf {
     oxirun_dir
 }
 
-pub fn get_config() -> Config {
+pub fn get_config() -> Table {
     let oxirun_dir = get_oxirun_dir();
     let oxirun_config = oxirun_dir.join("config.toml");
     if !oxirun_config.is_file() {
-        create_default_config(&oxirun_config)
+        Table::new()
     } else {
         read_config(&oxirun_config)
     }
