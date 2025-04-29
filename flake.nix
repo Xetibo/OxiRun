@@ -53,7 +53,7 @@
           };
 
         packages = let
-          lockFile = ./Cargo.lock;
+          lockFile = ./oxirun/Cargo.lock;
         in rec {
           oxirun = pkgs.callPackage ./nix/default.nix {inherit inputs lockFile;};
           default = oxirun;

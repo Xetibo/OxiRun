@@ -1,4 +1,5 @@
-/target
+oxirun/target
+oxirun-plugins/target
 result
 /result
 /.direnv
