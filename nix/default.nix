@@ -20,7 +20,7 @@
   libXcursor,
   ...
 }: let
-  cargoToml = builtins.fromTOML (builtins.readFile ../Cargo.toml);
+  cargoToml = builtins.fromTOML (builtins.readFile ../oxirun/Cargo.toml);
   libPath = lib.makeLibraryPath [
     libGL
     libxkbcommon
@@ -33,7 +33,7 @@ in
     pname = cargoToml.package.name;
     version = cargoToml.package.version;
 
-    src = ../.;
+    src = ../oxirun/.;
 
     buildInputs = [
       pkg-config
