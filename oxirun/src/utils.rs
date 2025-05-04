@@ -26,7 +26,13 @@ impl FocusDirection {
                     length - 1
                 }
             }
-            FocusDirection::Down => (rhs + 1) % length,
+            FocusDirection::Down => {
+                if length > 0 {
+                    (rhs + 1) % length
+                } else {
+                    0
+                }
+            }
         }
     }
 }

@@ -1,0 +1,7 @@
+# Allows specific plugins, making it easy to enable or disable plugins
+plugins = ["libapplications.so"]
+
+# plugin specific configuration
+[applications]
+max_entries = 7
+terminal = "kitty"
