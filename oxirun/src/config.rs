@@ -26,9 +26,11 @@ fn read_config(oxirun_config: &PathBuf) -> Table {
 }
 
 pub fn get_oxirun_dir() -> PathBuf {
-    let base_dirs = xdg::BaseDirectories::new().expect("Could not get base directories");
+    let base_dirs = xdg::BaseDirectories::new();
     let config_home = base_dirs.get_config_home();
-    let oxirun_dir = config_home.join("oxirun");
+    let oxirun_dir = config_home
+        .expect("Could not get config home")
+        .join("oxirun");
     if !oxirun_dir.is_dir() {
         std::fs::create_dir(&oxirun_dir).expect("Could not create config dir");
     }

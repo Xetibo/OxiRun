@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use config::{get_allowed_plugins, get_config, get_oxirun_dir};
 use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
-use iced::widget::Column;
+use iced::widget::{Column, button};
 use iced::{Element, Length, Subscription, Task, Theme, event};
 use oxiced::theme::get_theme;
-use oxiced::widgets::common::lighten_color;
+use oxiced::widgets::common::{darken_color, lighten_color};
 use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_text_input::text_input;
 
@@ -139,7 +139,9 @@ fn content_button(
             let is_focused = current_index == focused_index;
             let palette = theme.extended_palette().primary;
             let default_style = oxi_button::primary_button(theme, status);
-            let background = if is_focused {
+            let background = if status == button::Status::Hovered {
+                Some(iced::Background::Color(darken_color(palette.base.color)))
+            } else if is_focused {
                 default_style.background
             } else {
                 Some(iced::Background::Color(lighten_color(palette.base.color)))
@@ -189,8 +191,7 @@ fn plugin_count(model: &mut OxiRun) -> usize {
             let count_func = funcs.count.clone();
             unsafe { (count_func)(model.clone()) }
         })
-        .max()
-        .unwrap_or(0)
+        .sum::<usize>()
 }
 
 impl Application for OxiRun {
@@ -230,7 +231,7 @@ impl Application for OxiRun {
             }
             Message::MoveApplicationFocus(direction) => {
                 self.current_focus = direction.add(self.current_focus, plugin_count(self));
-                iced::widget::focus_next()
+                Task::none()
             }
             Message::LaunchFocusedEntry => {
                 let tasks = plugin_launch(self, self.current_focus);

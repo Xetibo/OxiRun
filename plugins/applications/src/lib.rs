@@ -231,15 +231,12 @@ fn read_single_entry(
                 (None, Some(_)) => (),
                 (Some(_), None) => (),
                 (Some(name), Some(exec)) => {
-                    entries.insert(
-                        name.clone(),
-                        EntryInfo {
-                            name,
-                            icon,
-                            categories,
-                            exec,
-                        },
-                    );
+                    entries.insert(name.clone(), EntryInfo {
+                        name,
+                        icon,
+                        categories,
+                        exec,
+                    });
                 }
             }
         }
@@ -509,5 +506,5 @@ pub extern "C" fn count(model: Arc<RefCell<&'static mut dyn OxiAny>>) -> usize {
     let model = model_borrow
         .downcast_ref::<Model>()
         .expect("can't get model in sort");
-    model.sorted_applications.len()
+    usize::min(model.sorted_applications.len(), model.config.max_entries)
 }
