@@ -40,6 +40,9 @@ pub struct PluginFuncs {
         )
             -> Result<Vec<(i64, Element<'static, PluginMsg>)>, std::io::Error>,
     >,
+    pub errors:
+        libloading::Symbol<'static, unsafe extern "C" fn(model: PluginModel) -> Vec<String>>,
+    pub name: libloading::Symbol<'static, unsafe extern "C" fn() -> &'static str>,
     pub count: libloading::Symbol<'static, unsafe extern "C" fn(model: PluginModel) -> usize>,
 }
 
@@ -90,22 +93,39 @@ pub fn load_plugin(lib: &'static Library) -> Option<PluginFuncs> {
             >,
             libloading::Error,
         > = lib.get(b"view");
+        let errors: Result<
+            libloading::Symbol<unsafe extern "C" fn(model: PluginModel) -> Vec<String>>,
+            libloading::Error,
+        > = lib.get(b"errors");
+        let name: Result<
+            libloading::Symbol<unsafe extern "C" fn() -> &'static str>,
+            libloading::Error,
+        > = lib.get(b"name");
         let count: Result<
             libloading::Symbol<unsafe extern "C" fn(model: PluginModel) -> usize>,
             libloading::Error,
         > = lib.get(b"count");
 
-        match (model, update, sort, launch, view, count) {
-            (Ok(model), Ok(update), Ok(sort), Ok(launch), Ok(view), Ok(count)) => {
-                Some(PluginFuncs {
-                    model,
-                    update,
-                    view,
-                    sort,
-                    launch,
-                    count,
-                })
-            }
+        match (model, update, sort, launch, view, errors, name, count) {
+            (
+                Ok(model),
+                Ok(update),
+                Ok(sort),
+                Ok(launch),
+                Ok(view),
+                Ok(errors),
+                Ok(name),
+                Ok(count),
+            ) => Some(PluginFuncs {
+                model,
+                update,
+                view,
+                sort,
+                launch,
+                errors,
+                name,
+                count,
+            }),
             _ => None,
         }
     }

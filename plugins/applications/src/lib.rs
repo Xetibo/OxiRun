@@ -40,6 +40,7 @@ pub struct Model {
     applications: Vec<EntryInfo>,
     sorted_applications: Vec<ScoredEntryInfo>,
     fuzzy_matcher: Arc<SkimMatcherV2>,
+    errors: Vec<String>,
 }
 
 impl Model {
@@ -231,12 +232,15 @@ fn read_single_entry(
                 (None, Some(_)) => (),
                 (Some(_), None) => (),
                 (Some(name), Some(exec)) => {
-                    entries.insert(name.clone(), EntryInfo {
-                        name,
-                        icon,
-                        categories,
-                        exec,
-                    });
+                    entries.insert(
+                        name.clone(),
+                        EntryInfo {
+                            name,
+                            icon,
+                            categories,
+                            exec,
+                        },
+                    );
                 }
             }
         }
@@ -273,7 +277,7 @@ fn read_entry_of_dirs(
     entries
 }
 
-pub fn fetch_entries(config: Config) -> Message {
+pub fn fetch_entries(config: Config) -> (Message, Option<String>) {
     let dir_iter = DATA_DIRS
         .into_iter()
         .map(|val| {
@@ -281,7 +285,6 @@ pub fn fetch_entries(config: Config) -> Message {
             if let Ok(dirs) = dirs_res {
                 dirs.split(":").map(String::from).collect::<Vec<String>>()
             } else {
-                // TODO handle error
                 Vec::new()
             }
         })
@@ -300,7 +303,14 @@ pub fn fetch_entries(config: Config) -> Message {
         .into_values()
         .collect::<Vec<_>>();
 
-    Message::ReceiveEntries(entries)
+    if entries.is_empty() {
+        (
+            Message::ReceiveEntries(entries),
+            Some(String::from("Application entry list is empty")),
+        )
+    } else {
+        (Message::ReceiveEntries(entries), None)
+    }
 }
 
 pub fn create_entry_card<'a>(entry: EntryInfo) -> Element<'a, Message> {
@@ -397,10 +407,14 @@ pub extern "C" fn model(
     let model = Box::leak(Box::new(Model::new(global_config)));
 
     let config = model.config.clone();
+
+    let (entries, entry_error_opt) = fetch_entries(config);
+    entry_error_opt.map(|value| model.errors.push(value));
+
     // TODO get config from main app perhaps? if so how? this should only take subkeys
     (
         Arc::new(RefCell::new(model as &'static mut dyn OxiAny)),
-        Some(Task::future(to_oxiany_async(fetch_entries(config)))),
+        Some(Task::future(to_oxiany_async(entries))),
     )
 }
 
@@ -412,13 +426,15 @@ pub extern "C" fn update(
     msg: Arc<&'static mut dyn OxiAny>,
 ) -> Option<Task<Arc<dyn OxiAny>>> {
     let mut model_borrow = model.borrow_mut();
-    let model = model_borrow
-        .downcast_mut::<Model>()
-        .expect("can't get model in update");
-    let msg = msg
-        .downcast_ref::<Message>()
-        .expect("can't get msg in update")
-        .to_owned();
+    let model = model_borrow.downcast_mut::<Model>()?;
+    let msg_opt = msg.downcast_ref::<Message>();
+    if let None = msg_opt {
+        model
+            .errors
+            .push(String::from("Can't get message in update"));
+        return None;
+    };
+    let msg = msg_opt.unwrap().to_owned();
     match msg {
         Message::ReceiveEntries(entry_infos) => {
             model.applications = entry_infos.clone();
@@ -443,9 +459,7 @@ pub extern "C" fn sort(
     model: Arc<RefCell<&'static mut dyn OxiAny>>,
 ) -> Option<Task<Arc<dyn OxiAny>>> {
     let mut model_borrow = model.borrow_mut();
-    let model = model_borrow
-        .downcast_mut::<Model>()
-        .expect("can't get model in sort");
+    let model = model_borrow.downcast_mut::<Model>()?;
     let applications = model.applications.clone();
     Some(Task::future(to_oxiany_async(sort_appliations(
         applications,
@@ -461,16 +475,14 @@ pub extern "C" fn launch(
     model: Arc<RefCell<&'static mut dyn OxiAny>>,
 ) -> Option<Task<&'static dyn OxiAny>> {
     let mut model_borrow = model.borrow_mut();
-    let model = model_borrow
-        .downcast_mut::<Model>()
-        .expect("can't get model in sort");
-    let exec = &model
-        .sorted_applications
-        .get(focused_index)
-        .expect("Could not get entry for index")
-        .entry
-        .exec;
-    run_command(&exec);
+    let model = model_borrow.downcast_mut::<Model>()?;
+    let exec_opt = &model.sorted_applications.get(focused_index);
+    if let None = exec_opt {
+        model.errors.push("Could not get entry for index".into());
+        return None;
+    }
+    let exec = &exec_opt.unwrap().entry.exec;
+    run_command(exec);
     None
 }
 
@@ -482,7 +494,10 @@ pub extern "C" fn view(
     let model_borrow = model.borrow();
     let model = model_borrow
         .downcast_ref::<Model>()
-        .expect("can't get model in sort");
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Could not get model in view",
+        ))?;
     let entries: Vec<(i64, Element<Arc<dyn OxiAny>>)> = model
         .sorted_applications
         .clone()
@@ -501,10 +516,30 @@ pub extern "C" fn view(
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
+pub extern "C" fn name() -> &'static str {
+    "Applications"
+}
+
+#[unsafe(no_mangle)]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn errors(model: Arc<RefCell<&'static mut dyn OxiAny>>) -> Vec<String> {
+    let model_borrow = model.borrow();
+    let model_opt = model_borrow.downcast_ref::<Model>();
+    if let Some(model) = model_opt {
+        model.errors.clone()
+    } else {
+        vec![String::from("Could not get model while fetching errors")]
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(improper_ctypes_definitions)]
 pub extern "C" fn count(model: Arc<RefCell<&'static mut dyn OxiAny>>) -> usize {
     let model_borrow = model.borrow();
-    let model = model_borrow
-        .downcast_ref::<Model>()
-        .expect("can't get model in sort");
-    usize::min(model.sorted_applications.len(), model.config.max_entries)
+    let model_opt = model_borrow.downcast_ref::<Model>();
+    if let Some(model) = model_opt {
+        usize::min(model.sorted_applications.len(), model.config.max_entries)
+    } else {
+        0
+    }
 }

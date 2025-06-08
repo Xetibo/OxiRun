@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use config::{get_allowed_plugins, get_config, get_oxirun_dir};
 use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
-use iced::widget::{Column, button};
+use iced::widget::{Column, Row, button, text};
 use iced::{Element, Length, Subscription, Task, Theme, event};
 use oxiced::theme::get_theme;
 use oxiced::widgets::common::{darken_color, lighten_color};
@@ -74,7 +74,6 @@ enum Message {
     LaunchFocusedEntry,
     MoveApplicationFocus(FocusDirection),
     PluginSubMsg(usize, PluginMsg),
-    _ErrorMsg, // TODO use
 }
 
 impl TryInto<LayershellCustomActions> for Message {
@@ -194,6 +193,22 @@ fn plugin_count(model: &mut OxiRun) -> usize {
         .sum::<usize>()
 }
 
+fn error_view<'a>(plugin_name: &'static str, errors: Vec<String>) -> Option<Element<'a, Message>> {
+    let mut col = Column::new();
+    if errors.is_empty() {
+        return None;
+    }
+    col = col.push(text(plugin_name));
+    let error_views = errors
+        .into_iter()
+        .map(|value| text(value))
+        .collect::<Vec<_>>();
+    for error in error_views {
+        col = col.push(error);
+    }
+    Some(col.into())
+}
+
 impl Application for OxiRun {
     type Message = Message;
     type Flags = ();
@@ -247,11 +262,6 @@ impl Application for OxiRun {
                     Task::none()
                 }
             },
-            Message::_ErrorMsg => {
-                // TODO show error to user
-                println!("error occurred");
-                Task::none()
-            }
         }
     }
 
@@ -286,6 +296,7 @@ impl Application for OxiRun {
             .enumerate()
             .map(|(elem_index, val)| content_button(self.current_focus, elem_index, val))
             .collect::<Vec<_>>();
+
         let mut col = Column::new();
         col = col.push(
             text_input(
@@ -298,6 +309,18 @@ impl Application for OxiRun {
         for entry in plugin_views {
             col = col.push(entry);
         }
+
+        let mut plugin_error_views = Row::new();
+        for (_, plugin) in self.plugins.iter() {
+            unsafe {
+                plugin_error_views = plugin_error_views.push_maybe(error_view(
+                    (plugin.1.name)(),
+                    (plugin.1.errors)(plugin.0.clone()).clone(),
+                ))
+            }
+        }
+        col = col.push(plugin_error_views);
+
         wrap_in_rounded_box(col.width(Length::Fill).spacing(MEDIUM_SPACING))
     }
 
