@@ -2603,13 +2603,14 @@ dependencies = [
 
 [[package]]
 name = "oxiced"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbc4ad22bd9eb262a5f2fa9fbf457e320c4edf209a82421d10cf4eaf03ffda88"
+checksum = "4bae71cc73b106643199a0ea1876efdba291d91baaea1ee9b30ad387543401cf"
 dependencies = [
  "iced",
  "iced_layershell 0.13.6",
  "once_cell",
+ "optional_struct",
  "serde",
  "toml",
  "xdg",
