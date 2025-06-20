@@ -5,8 +5,7 @@ use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
 use iced::widget::{Column, Row, button, text};
 use iced::{Element, Length, Subscription, Task, Theme, event};
-use oxiced::theme::get_theme;
-use oxiced::widgets::common::{darken_color, lighten_color};
+use oxiced::theme::theme::{get_derived_iced_theme, OXITHEME};
 use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_text_input::text_input;
 
@@ -57,7 +56,7 @@ struct OxiRun {
 impl Default for OxiRun {
     fn default() -> Self {
         Self {
-            theme: get_theme(),
+            theme: get_derived_iced_theme(),
             filter_text: "".into(),
             plugins: HashMap::new(),
             current_focus: 0,
@@ -136,14 +135,14 @@ fn content_button(
         .on_press(Message::LaunchEntry(current_index))
         .style(move |theme, status| {
             let is_focused = current_index == focused_index;
-            let palette = theme.extended_palette().primary;
-            let default_style = oxi_button::primary_button(theme, status);
+            let palette = OXITHEME;
+            let default_style = oxi_button::row_entry(theme, status);
             let background = if status == button::Status::Hovered {
-                Some(iced::Background::Color(darken_color(palette.base.color)))
+                Some(iced::Background::Color(palette.primary_bg_active))
             } else if is_focused {
-                default_style.background
+                Some(iced::Background::Color(palette.primary_bg_hover))
             } else {
-                Some(iced::Background::Color(lighten_color(palette.base.color)))
+                Some(iced::Background::Color(palette.primary_bg))
             };
             iced::widget::button::Style {
                 background,
@@ -351,11 +350,11 @@ impl Application for OxiRun {
     }
 
     // remove the annoying background color
-    fn style(&self, theme: &Self::Theme) -> iced_layershell::Appearance {
-        let palette = theme.extended_palette();
+    fn style(&self, _: &Self::Theme) -> iced_layershell::Appearance {
+        let palette = OXITHEME;
         iced_layershell::Appearance {
             background_color: iced::Color::TRANSPARENT,
-            text_color: palette.background.base.text,
+            text_color: palette.text
         }
     }
 

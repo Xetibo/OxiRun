@@ -1,6 +1,7 @@
 use iced::{
     Alignment, Element, Length, Renderer, Theme, widget::container, widget::container::Style,
 };
+use oxiced::theme::theme::OXITHEME;
 
 use crate::Message;
 
@@ -37,12 +38,12 @@ impl FocusDirection {
 }
 
 fn box_style(theme: &Theme) -> Style {
-    let palette = theme.extended_palette();
+    let palette = OXITHEME;
     Style {
         background: Some(iced::Background::Color(
-            palette.background.base.color,
+            palette.base
         )),
-        border: iced::border::color(palette.primary.strong.color).width(5).rounded(10),
+        border: iced::border::color(palette.primary).width(5).rounded(palette.border_radius),
         ..container::rounded_box(theme)
     }
 }

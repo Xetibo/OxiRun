@@ -9,7 +9,7 @@ crate-type = ["dylib"]
 [dependencies]
 iced = { version = "0.13.1", features = ["advanced", "canvas", "image", "svg"] }
 fuzzy-matcher = "0.3.7"
-oxiced = "0.4.0"
+oxiced = "0.5.0"
 toml = "0.8.22"
 serde = "1.0.219"
 optional_struct = "0.5.2"

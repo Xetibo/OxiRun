@@ -7,7 +7,7 @@ license = "GPL-3.0-only"
 
 [dependencies]
 oxilib = "0.1.2"
-oxiced = "0.4.0"
+oxiced = "0.5.0"
 iced = { version = "0.13.1", features = ["advanced", "canvas", "image", "svg"] }
 iced_layershell = "0.12.0"                                                       # broken on later versions
 xdg = "3.0.0"
