@@ -47,6 +47,7 @@
               rustc
               rust-analyzer
               clippy
+              rustfmt
             ];
             LD_LIBRARY_PATH = libPath;
             LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";

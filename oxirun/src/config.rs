@@ -1,5 +1,6 @@
 use std::{fs, io::Read, path::PathBuf};
 
+use iced_layershell::reexport::Anchor;
 use toml::Table;
 
 pub fn get_allowed_plugins<'a>(config: &'a Table) -> Vec<&'a str> {
@@ -45,4 +46,22 @@ pub fn get_config() -> Table {
     } else {
         read_config(&oxirun_config)
     }
+}
+
+fn anchor_from_string(anchor_str: &str) -> Anchor {
+    match anchor_str.to_lowercase().as_str() {
+        "top" => Anchor::Top,
+        "bottom" => Anchor::Bottom,
+        "right" => Anchor::Right,
+        "left" => Anchor::Left,
+        _ => Anchor::Top,
+    }
+}
+
+pub fn anchor_from_strings(anchor_strs: Vec<&str>) -> Anchor {
+    let mut anchor = Anchor::empty();
+    for anchor_str in anchor_strs {
+        anchor = anchor | anchor_from_string(anchor_str);
+    }
+    anchor
 }

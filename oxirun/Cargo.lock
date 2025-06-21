@@ -2579,6 +2579,7 @@ dependencies = [
  "iced",
  "iced_layershell",
  "libloading 0.8.8",
+ "once_cell",
  "optional_struct",
  "oxiced",
  "oxilib",

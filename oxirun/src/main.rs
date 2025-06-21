@@ -5,7 +5,8 @@ use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
 use iced::widget::{Column, Row, button, text};
 use iced::{Element, Length, Subscription, Task, Theme, event};
-use oxiced::theme::theme::{get_derived_iced_theme, OXITHEME};
+use once_cell::sync::Lazy;
+use oxiced::theme::theme::{OXITHEME, get_derived_iced_theme};
 use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_layer::{layer_theme, rounded_layer};
 use oxiced::widgets::oxi_text_input::text_input;
@@ -18,9 +19,13 @@ use plugins::{PluginFuncs, PluginModel, PluginMsg, load_plugin};
 use toml::Table;
 use utils::{FocusDirection, MEDIUM_SPACING};
 
+use crate::config::anchor_from_strings;
+
 mod config;
 mod plugins;
 mod utils;
+
+const CONFIG: Lazy<Table> = Lazy::new(|| get_config());
 
 // TODO make this configurable
 const ICON_SIZE: f32 = 50.0;
@@ -31,11 +36,26 @@ const WINDOW_LAYER: Layer = Layer::Overlay;
 const WINDOW_KEYBAORD_MODE: KeyboardInteractivity = KeyboardInteractivity::Exclusive;
 
 pub fn main() -> Result<(), iced_layershell::Error> {
+    let default_anchor = Anchor::Left | Anchor::Right;
+    let binding = CONFIG;
+    let anchor_opt = binding.get("anchor");
+    let anchor = if let Some(anchor_str) = anchor_opt {
+        anchor_from_strings(
+            anchor_str
+                .as_array()
+                .unwrap()
+                .into_iter()
+                .map(|value| value.as_str().unwrap_or("top"))
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        default_anchor
+    };
     let settings = Settings {
         layer_settings: LayerShellSettings {
             size: Some(WINDOW_SIZE),
             exclusive_zone: 0,
-            anchor: Anchor::Left | Anchor::Right,
+            anchor: anchor,
             layer: WINDOW_LAYER,
             margin: WINDOW_MARGINS,
             keyboard_interactivity: WINDOW_KEYBAORD_MODE,
@@ -216,12 +236,11 @@ impl Application for OxiRun {
     type Executor = iced::executor::Default;
 
     fn new(_flags: ()) -> (Self, Task<Message>) {
-        let config = get_config();
-        let (plugins, mut plugin_tasks) = get_plugins(&config);
+        let (plugins, mut plugin_tasks) = get_plugins(&CONFIG);
         plugin_tasks.push(iced::widget::text_input::focus("search_box"));
         (
             Self {
-                _config: config,
+                _config: CONFIG.to_owned(),
                 plugins,
                 ..Default::default()
             },
