@@ -159,12 +159,11 @@ fn read_single_entry(
         Ok(data) => {
             let mut map = HashMap::new();
             let mut iter = data.lines();
-            if iter
+            let first_line = iter
                 .next()
                 .unwrap_or(Ok("".to_string()))
-                .unwrap_or("".to_string())
-                != "[Desktop Entry]"
-            {
+                .unwrap_or("".to_string());
+            if first_line != "[Desktop Entry]" || first_line.starts_with("//") {
                 return;
             }
             for line_res in iter {
