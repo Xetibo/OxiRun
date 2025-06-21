@@ -7,6 +7,7 @@ use iced::widget::{Column, Row, button, text};
 use iced::{Element, Length, Subscription, Task, Theme, event};
 use oxiced::theme::theme::{get_derived_iced_theme, OXITHEME};
 use oxiced::widgets::oxi_button::{self, ButtonVariant};
+use oxiced::widgets::oxi_layer::{layer_theme, rounded_layer};
 use oxiced::widgets::oxi_text_input::text_input;
 
 use iced_layershell::Application;
@@ -15,7 +16,7 @@ use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
 use iced_layershell::settings::{LayerShellSettings, Settings};
 use plugins::{PluginFuncs, PluginModel, PluginMsg, load_plugin};
 use toml::Table;
-use utils::{FocusDirection, MEDIUM_SPACING, wrap_in_rounded_box};
+use utils::{FocusDirection, MEDIUM_SPACING};
 
 mod config;
 mod plugins;
@@ -136,7 +137,7 @@ fn content_button(
         .style(move |theme, status| {
             let is_focused = current_index == focused_index;
             let palette = OXITHEME;
-            let default_style = oxi_button::row_entry(theme, status);
+            let default_style = oxi_button::neutral_button(theme, status);
             let background = if status == button::Status::Hovered {
                 Some(iced::Background::Color(palette.primary_bg_active))
             } else if is_focused {
@@ -320,7 +321,7 @@ impl Application for OxiRun {
         }
         col = col.push(plugin_error_views);
 
-        wrap_in_rounded_box(col.width(Length::Fill).spacing(MEDIUM_SPACING))
+        rounded_layer(col.width(Length::Fill).spacing(MEDIUM_SPACING), WINDOW_SIZE)
     }
 
     fn theme(&self) -> Theme {
@@ -351,11 +352,7 @@ impl Application for OxiRun {
 
     // remove the annoying background color
     fn style(&self, _: &Self::Theme) -> iced_layershell::Appearance {
-        let palette = OXITHEME;
-        iced_layershell::Appearance {
-            background_color: iced::Color::TRANSPARENT,
-            text_color: palette.text
-        }
+        layer_theme()
     }
 
     fn scale_factor(&self) -> f64 {
