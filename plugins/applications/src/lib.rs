@@ -334,7 +334,7 @@ pub fn create_entry_card<'a>(entry: EntryInfo) -> Element<'a, Message> {
             IconVariant::Invalid => None,
         })
         .flatten();
-    let content = Row::new().push_maybe(icon).push(
+    let content = Row::new().push(icon).push(
         container(
             text(entry.name.clone())
                 .align_y(Alignment::Center)
