@@ -1,18 +1,24 @@
 [package]
 name = "oxirun"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "A clipboard manager daemon written in Rust."
 license = "GPL-3.0-only"
 
 [dependencies]
+iced = { version = "0.14.0-dev", features = [
+	"advanced",
+	"canvas",
+	"image",
+	"svg",
+	"tokio",
+], git = "https://github.com/iced-rs/iced" }
+iced_layershell = { version = "0.14.0-dev", git = "https://github.com/waycrate/exwlshelleventloop" }
 oxilib = "0.1.2"
-oxiced = "0.5.1"
-iced = { version = "0.13.1", features = ["advanced", "canvas", "image", "svg"] }
-iced_layershell = "0.12.0"                                                       # broken on later versions
+oxiced = { git = "https://github.com/Xetibo/oxiced", branch = "iced14" }
 xdg = "3.0.0"
 fuzzy-matcher = "0.3.7"
-toml = "0.8.21"
+toml = "0.9.5"
 serde = "1.0.219"
 optional_struct = "0.5.2"
 libloading = "0.8.8"

@@ -53,19 +53,20 @@ in {
           then "lib${lib.replaceStrings ["-"] ["_"] entry.pname}.so"
           else "")
         cfg.config.plugins;
+    plugin_files = builtins.listToAttrs (builtins.map
+      (pkg: {
+        name = ".config/oxirun/plugins/lib${lib.replaceStrings ["-"] ["_"] pkg.pname}.so";
+        value = {
+          source = "${pkg}/lib/lib${lib.replaceStrings ["-"] ["_"] pkg.pname}.so";
+        };
+      })
+      cfg.config.plugins);
   in
     lib.mkIf
     cfg.enable
     {
       home.packages = lib.optional (cfg.package != null) cfg.package ++ cfg.config.plugins;
-      home.file = builtins.listToAttrs (builtins.map
-        (pkg: {
-          name = ".config/oxirun/plugins/lib${lib.replaceStrings ["-"] ["_"] pkg.pname}.so";
-          value = {
-            source = "${pkg}/lib/lib${lib.replaceStrings ["-"] ["_"] pkg.pname}.so";
-          };
-        })
-        cfg.config.plugins);
+      home.file = plugin_files;
 
       xdg.configFile."oxirun/config.toml".source =
         (pkgs.formats.toml {}).generate "oxirun"

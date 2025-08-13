@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use config::{get_allowed_plugins, get_config, get_oxirun_dir};
 use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
+use iced::theme::Style;
 use iced::widget::{Column, Row, button, text};
 use iced::{Element, Length, Subscription, Task, Theme, event};
 use once_cell::sync::Lazy;
@@ -11,8 +12,6 @@ use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_layer::{layer_theme, rounded_layer};
 use oxiced::widgets::oxi_text_input::text_input;
 
-use iced_layershell::Application;
-use iced_layershell::actions::LayershellCustomActions;
 use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
 use iced_layershell::settings::{LayerShellSettings, Settings};
 use plugins::{PluginFuncs, PluginModel, PluginMsg, load_plugin};
@@ -63,7 +62,13 @@ pub fn main() -> Result<(), iced_layershell::Error> {
         },
         ..Default::default()
     };
-    OxiRun::run(settings)
+    iced_layershell::application(OxiRun::new, OxiRun::namespace, OxiRun::update, OxiRun::view)
+        .subscription(OxiRun::subscription)
+        .settings(settings)
+        .theme(OxiRun::theme)
+        .style(OxiRun::style)
+        .scale_factor(OxiRun::scale_factor)
+        .run()
 }
 
 struct OxiRun {
@@ -94,11 +99,14 @@ enum Message {
     LaunchFocusedEntry,
     MoveApplicationFocus(FocusDirection),
     PluginSubMsg(usize, PluginMsg),
+    FocusSearch,
 }
 
-impl TryInto<LayershellCustomActions> for Message {
+impl TryInto<iced_layershell::actions::LayershellCustomActionWithId> for Message {
     type Error = Self;
-    fn try_into(self) -> Result<LayershellCustomActions, Self::Error> {
+    fn try_into(
+        self,
+    ) -> Result<iced_layershell::actions::LayershellCustomActionWithId, Self::Error> {
         Err(self)
     }
 }
@@ -229,13 +237,8 @@ fn error_view<'a>(plugin_name: &'static str, errors: Vec<String>) -> Option<Elem
     Some(col.into())
 }
 
-impl Application for OxiRun {
-    type Message = Message;
-    type Flags = ();
-    type Theme = Theme;
-    type Executor = iced::executor::Default;
-
-    fn new(_flags: ()) -> (Self, Task<Message>) {
+impl OxiRun {
+    fn new() -> (Self, Task<Message>) {
         let (plugins, mut plugin_tasks) = get_plugins(&CONFIG);
         plugin_tasks.push(iced::widget::text_input::focus("search_box"));
         (
@@ -248,7 +251,7 @@ impl Application for OxiRun {
         )
     }
 
-    fn namespace(&self) -> String {
+    fn namespace() -> String {
         String::from("OxiRun")
     }
 
@@ -281,6 +284,7 @@ impl Application for OxiRun {
                     Task::none()
                 }
             },
+            Message::FocusSearch => iced::widget::text_input::focus("search_box"),
         }
     }
 
@@ -332,7 +336,7 @@ impl Application for OxiRun {
         let mut plugin_error_views = Row::new();
         for (_, plugin) in self.plugins.iter() {
             unsafe {
-                plugin_error_views = plugin_error_views.push_maybe(error_view(
+                plugin_error_views = plugin_error_views.push(error_view(
                     (plugin.1.name)(),
                     (plugin.1.errors)(plugin.0.clone()).clone(),
                 ))
@@ -347,7 +351,7 @@ impl Application for OxiRun {
         self.theme.clone()
     }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
+    fn subscription(&self) -> Subscription<Message> {
         event::listen_with(move |event, _status, _id| match event {
             iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                 modifiers: modifier,
@@ -365,12 +369,12 @@ impl Application for OxiRun {
                 },
                 _ => None,
             },
-            _ => None,
+            _ => Some(Message::FocusSearch),
         })
     }
 
     // remove the annoying background color
-    fn style(&self, _: &Self::Theme) -> iced_layershell::Appearance {
+    fn style(&self, _: &Theme) -> Style {
         layer_theme()
     }
 
