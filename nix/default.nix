@@ -43,16 +43,19 @@ in
       libclang
     ];
 
-    cargoLock = {
-      inherit lockFile;
-      outputHashes = {
-        "cryoglyph-0.1.0" = "sha256-Jc+rhzd5BIT7aYBtIfsBFFKkGChdEYhDHdYGiv4KE+c=";
-        "dpi-0.1.1" = "sha256-hlVhlQ8MmIbNFNr6BM4edKdZbe+ixnPpKm819zauFLQ=";
-        "iced-0.14.0-dev" = "sha256-ToInrksjWeUj7yKF4I7/GOD883abHX6WrmADCZrOa80=";
-        "iced_exdevtools-0.14.0-dev" = "sha256-1ncfSYSeHUl59cGchpbXyAh/IB6Mxse6D3P5CLRh9kE=";
-        "oxiced-0.5.1" = "sha256-XrpXpgsgy+ECmqsn5fSu9BAHpvz1t3f71ItHfezm/Pk=";
-      };
-    };
+    # I legit hate how rust is handled by nix, it's unusable
+    # cargoLock = {
+    #   inherit lockFile;
+    #   outputHashes = {
+    #     "cryoglyph-0.1.0" = "sha256-Jc+rhzd5BIT7aYBtIfsBFFKkGChdEYhDHdYGiv4KE+c=";
+    #     "dpi-0.1.1" = "sha256-hlVhlQ8MmIbNFNr6BM4edKdZbe+ixnPpKm819zauFLQ=";
+    #     "iced-0.14.0-dev" = "sha256-ToInrksjWeUj7yKF4I7/GOD883abHX6WrmADCZrOa80=";
+    #     "iced_exdevtools-0.14.0-dev" = "sha256-1ncfSYSeHUl59cGchpbXyAh/IB6Mxse6D3P5CLRh9kE=";
+    #     "oxiced-0.5.1" = "sha256-XrpXpgsgy+ECmqsn5fSu9BAHpvz1t3f71ItHfezm/Pk=";
+    #   };
+    # };
+
+    cargoHash = "sha256-rL8w8YsI2EkO29swHfKFEIYv+IupnxKbHMTLibZQsUQ=";
 
     nativeBuildInputs = [
       pkg-config
