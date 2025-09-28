@@ -35,7 +35,7 @@ const WINDOW_LAYER: Layer = Layer::Overlay;
 const WINDOW_KEYBAORD_MODE: KeyboardInteractivity = KeyboardInteractivity::Exclusive;
 
 pub fn main() -> Result<(), iced_layershell::Error> {
-    let default_anchor = Anchor::Left | Anchor::Right;
+    let default_anchor = Anchor::empty();
     let binding = CONFIG;
     let anchor_opt = binding.get("anchor");
     let anchor = if let Some(anchor_str) = anchor_opt {
