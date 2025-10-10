@@ -353,10 +353,14 @@ impl OxiRun {
             }) => match key {
                 Named::Escape => Some(Message::Exit),
                 Named::Enter => Some(Message::LaunchFocusedEntry),
-                Named::Tab => match modifier {
-                    Modifiers::SHIFT => Some(Message::MoveApplicationFocus(FocusDirection::Up)),
-                    _ => Some(Message::MoveApplicationFocus(FocusDirection::Down)),
-                },
+                Named::ArrowUp => Some(Message::MoveApplicationFocus(FocusDirection::Up)),
+                Named::Tab if modifier == Modifiers::SHIFT => {
+                    Some(Message::MoveApplicationFocus(FocusDirection::Up))
+                }
+                Named::ArrowDown => Some(Message::MoveApplicationFocus(FocusDirection::Down)),
+                Named::Tab if modifier == Modifiers::empty() => {
+                    Some(Message::MoveApplicationFocus(FocusDirection::Down))
+                }
                 _ => None,
             },
             _ => Some(Message::FocusSearch),

@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     collections::HashMap,
     env,
     fmt::Debug,
@@ -7,7 +6,7 @@ use std::{
     io::BufRead,
     path::PathBuf,
     process::Command,
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 use config::{Config, get_config};
@@ -153,7 +152,7 @@ fn read_single_entry(
         if first_line != "[Desktop Entry]" && !first_line.starts_with("#") {
             return;
         }
-        for line in iter.flatten() {
+        for line in iter.map_while(Result::ok) {
             if line.starts_with("[Desktop Action") {
                 break;
             }
@@ -352,7 +351,11 @@ pub async fn to_oxiany_async(msg: Message) -> Arc<dyn OxiAny> {
 }
 
 pub fn run_command(command: &str) {
-    let res = Command::new("sh").arg("-c").arg(command).spawn();
+    let res = Command::new("sh")
+        .arg("-c")
+        .arg(format!("nohup {command} >/dev/null 2>&1 &"))
+        .spawn();
+
     if let Err(error) = res {
         panic!("Failed to spawn command: {error}");
     }
@@ -363,7 +366,7 @@ pub fn run_command(command: &str) {
 pub extern "C" fn model(
     global_config: Table,
 ) -> (
-    Arc<RefCell<&'static mut dyn OxiAny>>,
+    Arc<RwLock<&'static mut dyn OxiAny>>,
     Option<Task<Arc<dyn OxiAny>>>,
 ) {
     let model = Box::leak(Box::new(Model::new(global_config)));
@@ -377,7 +380,7 @@ pub extern "C" fn model(
 
     // TODO get config from main app perhaps? if so how? this should only take subkeys
     (
-        Arc::new(RefCell::new(model as &'static mut dyn OxiAny)),
+        Arc::new(RwLock::new(model as &'static mut dyn OxiAny)),
         Some(Task::future(to_oxiany_async(entries))),
     )
 }
@@ -386,10 +389,10 @@ pub extern "C" fn model(
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn update(
     filter_text: String,
-    model: Arc<RefCell<&'static mut dyn OxiAny>>,
+    model: Arc<RwLock<&'static mut dyn OxiAny>>,
     msg: Arc<&'static mut dyn OxiAny>,
 ) -> Option<Task<Arc<dyn OxiAny>>> {
-    let mut model_borrow = model.borrow_mut();
+    let mut model_borrow = model.try_write().ok()?;
     let model = model_borrow.downcast_mut::<Model>()?;
     let msg_opt = msg.downcast_ref::<Message>();
     if msg_opt.is_none() {
@@ -420,9 +423,9 @@ pub extern "C" fn update(
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn sort(
     filter_text: String,
-    model: Arc<RefCell<&'static mut dyn OxiAny>>,
+    model: Arc<RwLock<&'static mut dyn OxiAny>>,
 ) -> Option<Task<Arc<dyn OxiAny>>> {
-    let mut model_borrow = model.borrow_mut();
+    let mut model_borrow = model.try_write().ok()?;
     let model = model_borrow.downcast_mut::<Model>()?;
     let applications = model.applications.clone();
     Some(Task::future(to_oxiany_async(sort_appliations(
@@ -436,46 +439,57 @@ pub extern "C" fn sort(
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn launch(
     focused_index: usize,
-    model: Arc<RefCell<&'static mut dyn OxiAny>>,
+    model: Arc<RwLock<&'static mut dyn OxiAny>>,
 ) -> Option<Task<&'static dyn OxiAny>> {
-    let mut model_borrow = model.borrow_mut();
-    let model = model_borrow.downcast_mut::<Model>()?;
-    let exec_opt = &model.sorted_applications.get(focused_index);
-    if exec_opt.is_none() {
-        model.errors.push("Could not get entry for index".into());
-        return None;
+    let lock = model.try_write();
+    if let Ok(mut model_borrow) = lock {
+        let model_opt = model_borrow.downcast_mut::<Model>();
+        if let Some(model) = model_opt {
+            let exec_opt = &model.sorted_applications.get(focused_index);
+            if exec_opt.is_none() {
+                model.errors.push("Could not get entry for index".into());
+                return None;
+            }
+            let exec = &exec_opt.unwrap().entry.exec;
+            run_command(exec);
+        }
     }
-    let exec = &exec_opt.unwrap().entry.exec;
-    run_command(exec);
     None
 }
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn view(
-    model: Arc<RefCell<&'static mut dyn OxiAny>>,
+    model: Arc<RwLock<&'static mut dyn OxiAny>>,
 ) -> Result<Vec<(i64, Element<'static, Arc<dyn OxiAny>>)>, std::io::Error> {
-    let model_borrow = model.borrow();
-    let model = model_borrow
-        .downcast_ref::<Model>()
-        .ok_or(std::io::Error::new(
+    let lock = model.try_read();
+    if let Ok(model_borrow) = lock {
+        let model = model_borrow
+            .downcast_ref::<Model>()
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Could not get model in view",
+            ))?;
+        let entries: Vec<(i64, Element<Arc<dyn OxiAny>>)> = model
+            .sorted_applications
+            .clone()
+            .into_iter()
+            .take(model.config.max_entries)
+            .map(|scored_entry| {
+                (
+                    scored_entry.score,
+                    Into::<Element<Message>>::into(create_entry_card(scored_entry.entry))
+                        .map(to_oxiany_rc),
+                )
+            })
+            .collect::<Vec<_>>();
+        Ok(entries)
+    } else {
+        Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "Could not get model in view",
-        ))?;
-    let entries: Vec<(i64, Element<Arc<dyn OxiAny>>)> = model
-        .sorted_applications
-        .clone()
-        .into_iter()
-        .take(model.config.max_entries)
-        .map(|scored_entry| {
-            (
-                scored_entry.score,
-                Into::<Element<Message>>::into(create_entry_card(scored_entry.entry))
-                    .map(to_oxiany_rc),
-            )
-        })
-        .collect::<Vec<_>>();
-    Ok(entries)
+        ))
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -486,11 +500,15 @@ pub extern "C" fn name() -> &'static str {
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
-pub extern "C" fn errors(model: Arc<RefCell<&'static mut dyn OxiAny>>) -> Vec<String> {
-    let model_borrow = model.borrow();
-    let model_opt = model_borrow.downcast_ref::<Model>();
-    if let Some(model) = model_opt {
-        model.errors.clone()
+pub extern "C" fn errors(model: Arc<RwLock<&'static mut dyn OxiAny>>) -> Vec<String> {
+    let lock = model.try_read();
+    if let Ok(model_borrow) = lock {
+        let model_opt = model_borrow.downcast_ref::<Model>();
+        if let Some(model) = model_opt {
+            model.errors.clone()
+        } else {
+            vec![String::from("Could not get model while fetching errors")]
+        }
     } else {
         vec![String::from("Could not get model while fetching errors")]
     }
@@ -498,11 +516,15 @@ pub extern "C" fn errors(model: Arc<RefCell<&'static mut dyn OxiAny>>) -> Vec<St
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
-pub extern "C" fn count(model: Arc<RefCell<&'static mut dyn OxiAny>>) -> usize {
-    let model_borrow = model.borrow();
-    let model_opt = model_borrow.downcast_ref::<Model>();
-    if let Some(model) = model_opt {
-        usize::min(model.sorted_applications.len(), model.config.max_entries)
+pub extern "C" fn count(model: Arc<RwLock<&'static mut dyn OxiAny>>) -> usize {
+    let lock = model.try_read();
+    if let Ok(model_borrow) = lock {
+        let model_opt = model_borrow.downcast_ref::<Model>();
+        if let Some(model) = model_opt {
+            usize::min(model.sorted_applications.len(), model.config.max_entries)
+        } else {
+            0
+        }
     } else {
         0
     }

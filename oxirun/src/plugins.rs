@@ -1,11 +1,11 @@
-use std::{cell::RefCell, sync::Arc};
+use std::sync::{Arc, RwLock};
 
 use iced::{Element, Task};
 use libloading::Library;
 use oxiced::any_send::OxiAny;
 use toml::Table;
 
-pub type PluginModel = Arc<RefCell<&'static mut dyn OxiAny>>;
+pub type PluginModel = Arc<RwLock<&'static mut dyn OxiAny>>;
 pub type PluginMsg = Arc<&'static mut dyn OxiAny>;
 
 #[allow(improper_ctypes_definitions)]
@@ -58,7 +58,7 @@ pub fn load_plugin(lib: &'static Library) -> Option<PluginFuncs> {
             libloading::Symbol<
                 unsafe extern "C" fn(
                     filter_text: String,
-                    model: Arc<RefCell<&mut dyn OxiAny>>,
+                    model: Arc<RwLock<&mut dyn OxiAny>>,
                     msg: PluginMsg,
                 ) -> Option<Task<PluginMsg>>,
             >,
