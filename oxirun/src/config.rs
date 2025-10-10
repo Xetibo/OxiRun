@@ -3,10 +3,10 @@ use std::{fs, io::Read, path::PathBuf};
 use iced_layershell::reexport::Anchor;
 use toml::Table;
 
-pub fn get_allowed_plugins<'a>(config: &'a Table) -> Vec<&'a str> {
+pub fn get_allowed_plugins(config: &Table) -> Vec<&str> {
     match config.get("plugins") {
         Some(toml::Value::Array(values)) => values
-            .into_iter()
+            .iter()
             .filter_map(|value| match value {
                 toml::Value::String(name) => Some(name.as_str()),
                 _ => None,
@@ -22,8 +22,8 @@ fn read_config(oxirun_config: &PathBuf) -> Table {
     let _ = file
         .read_to_string(&mut read_config)
         .expect("Could not read config file");
-    let config = toml::from_str(&read_config).expect("Could not deserialize config");
-    config
+
+    toml::from_str(&read_config).expect("Could not deserialize config")
 }
 
 pub fn get_oxirun_dir() -> PathBuf {
@@ -61,7 +61,7 @@ fn anchor_from_string(anchor_str: &str) -> Anchor {
 pub fn anchor_from_strings(anchor_strs: Vec<&str>) -> Anchor {
     let mut anchor = Anchor::empty();
     for anchor_str in anchor_strs {
-        anchor = anchor | anchor_from_string(anchor_str);
+        anchor |= anchor_from_string(anchor_str);
     }
     anchor
 }

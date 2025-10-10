@@ -21,8 +21,8 @@ use toml::Table;
 
 mod config;
 
-const SVG_ENDING: &'static str = ".svg";
-const PNG_ENDING: &'static str = ".png";
+const SVG_ENDING: &str = ".svg";
+const PNG_ENDING: &str = ".png";
 
 // https://specifications.freedesktop.org/desktop-entry-spec/latest/exec-variables.html
 const FREEDESKTOP_FIELDS: [&str; 13] = [
@@ -93,25 +93,22 @@ fn read_single_icon(
     iconmap: &mut HashMap<String, IconVariant>,
     file_res: Result<DirEntry, std::io::Error>,
 ) {
-    match file_res {
-        Ok(file) => {
-            let filename = file.file_name().into_string().unwrap_or_default();
-            let (stripped_name, icon_variant) = if filename.ends_with(PNG_ENDING) {
-                (
-                    filename.trim_end_matches(PNG_ENDING),
-                    IconVariant::Png(file.path()),
-                )
-            } else if filename.ends_with(SVG_ENDING) {
-                (
-                    filename.trim_end_matches(SVG_ENDING),
-                    IconVariant::Svg(file.path()),
-                )
-            } else {
-                (filename.as_str(), IconVariant::Invalid)
-            };
-            iconmap.insert(stripped_name.to_string(), icon_variant);
-        }
-        _ => (),
+    if let Ok(file) = file_res {
+        let filename = file.file_name().into_string().unwrap_or_default();
+        let (stripped_name, icon_variant) = if filename.ends_with(PNG_ENDING) {
+            (
+                filename.trim_end_matches(PNG_ENDING),
+                IconVariant::Png(file.path()),
+            )
+        } else if filename.ends_with(SVG_ENDING) {
+            (
+                filename.trim_end_matches(SVG_ENDING),
+                IconVariant::Svg(file.path()),
+            )
+        } else {
+            (filename.as_str(), IconVariant::Invalid)
+        };
+        iconmap.insert(stripped_name.to_string(), icon_variant);
     };
 }
 
@@ -120,31 +117,22 @@ fn read_icons_per_dir(path: String) -> HashMap<String, IconVariant> {
     // TODO make this use the current theme from gtk ?
     // perhaps make kde configurable? or get from env?
     for theme in ["hicolor", "Adwaita"] {
-        match fs::read_dir(format!("{}/icons/{}", path, theme)) {
-            Ok(dirs) => {
-                for subdirs in dirs {
-                    if let Ok(dir) = subdirs {
-                        match fs::read_dir(format!("{}/apps", dir.path().to_str().unwrap_or(""))) {
-                            Ok(files) => {
-                                for file_res in files {
-                                    read_single_icon(&mut map, file_res);
-                                }
-                            }
-                            _ => (),
-                        };
-                    };
-                }
+        if let Ok(dirs) = fs::read_dir(format!("{path}/icons/{theme}")) {
+            for subdir in dirs.flatten() {
+                if let Ok(files) =
+                    fs::read_dir(format!("{}/apps", subdir.path().to_str().unwrap_or("")))
+                {
+                    for file_res in files {
+                        read_single_icon(&mut map, file_res);
+                    }
+                };
             }
-            _ => (),
         }
     }
-    match fs::read_dir(format!("{}/pixmaps", path)) {
-        Ok(files) => {
-            for file_res in files {
-                read_single_icon(&mut map, file_res);
-            }
+    if let Ok(files) = fs::read_dir(format!("{path}/pixmaps")) {
+        for file_res in files {
+            read_single_icon(&mut map, file_res);
         }
-        _ => (),
     }
     map
 }
@@ -155,95 +143,87 @@ fn read_single_entry(
     entries: &mut HashMap<String, EntryInfo>,
     file: DirEntry,
 ) {
-    match fs::read(file.path()) {
-        Ok(data) => {
-            let mut map = HashMap::new();
-            let mut iter = data.lines();
-            let first_line = iter
-                .next()
-                .unwrap_or(Ok("".to_string()))
-                .unwrap_or("".to_string());
-            if first_line != "[Desktop Entry]" && !first_line.starts_with("#") {
-                return;
+    if let Ok(data) = fs::read(file.path()) {
+        let mut map = HashMap::new();
+        let mut iter = data.lines();
+        let first_line = iter
+            .next()
+            .unwrap_or(Ok("".to_string()))
+            .unwrap_or("".to_string());
+        if first_line != "[Desktop Entry]" && !first_line.starts_with("#") {
+            return;
+        }
+        for line in iter.flatten() {
+            if line.starts_with("[Desktop Action") {
+                break;
             }
-            for line_res in iter {
-                if let Ok(line) = line_res {
-                    if line.starts_with("[Desktop Action") {
-                        break;
-                    }
-                    if let Some((left, right)) = line.split_once("=") {
-                        let key = left.to_string();
-                        if map.get(&key).is_none() {
-                            map.insert(key, right.to_string());
-                        }
-                    }
-                }
-            }
-
-            // NoDisplay is set for applications which should not be shown in a runner
-            if let Some("true") = map.get("NoDisplay").map(String::as_str) {
-                return;
-            }
-
-            let exec = map.get("Exec").map(|val| {
-                let mut exec = val.to_string();
-                for field in FREEDESKTOP_FIELDS {
-                    // TODO should this be possible to be used with additional text
-                    // in the text field?
-                    exec = exec.replace(field, "");
-                }
-                if let Some("true") = map.get("Terminal").map(String::as_str) {
-                    exec = config.terminal.clone() + " " + &exec;
-                }
-                exec
-            });
-            let name = map.get("Name").map(|val| val.to_string());
-            let icon = map.get("Icon").map(|val| {
-                if let Some(icon) = iconmap.get(val) {
-                    icon.clone()
-                } else if val.ends_with(PNG_ENDING) {
-                    IconVariant::Png(PathBuf::from(val))
-                } else if val.ends_with(SVG_ENDING) {
-                    IconVariant::Svg(PathBuf::from(val))
-                } else {
-                    IconVariant::Invalid
-                }
-            });
-            let category_entries = map.get("Categories");
-            let keyword_entries = map.get("Keywords");
-            let categories = category_entries
-                .iter()
-                .zip(keyword_entries)
-                .map(|(categories, keywords)| {
-                    let mut entries = Vec::new();
-                    let category_iter = categories.split(";");
-                    let keyword_iter = keywords.split(";");
-                    for (category, keyword) in category_iter.zip(keyword_iter) {
-                        entries.push(category.to_string());
-                        entries.push(keyword.to_string());
-                    }
-                    entries
-                })
-                .flatten()
-                .collect::<Vec<_>>();
-            match (name, exec) {
-                (None, None) => (),
-                (None, Some(_)) => (),
-                (Some(_), None) => (),
-                (Some(name), Some(exec)) => {
-                    entries.insert(
-                        name.clone(),
-                        EntryInfo {
-                            name,
-                            icon,
-                            categories,
-                            exec,
-                        },
-                    );
-                }
+            if let Some((left, right)) = line.split_once("=") {
+                let key = left.to_string();
+                map.entry(key).or_insert_with(|| right.to_string());
             }
         }
-        Err(_) => (),
+
+        // NoDisplay is set for applications which should not be shown in a runner
+        if let Some("true") = map.get("NoDisplay").map(String::as_str) {
+            return;
+        }
+
+        let exec = map.get("Exec").map(|val| {
+            let mut exec = val.to_string();
+            for field in FREEDESKTOP_FIELDS {
+                // TODO should this be possible to be used with additional text
+                // in the text field?
+                exec = exec.replace(field, "");
+            }
+            if let Some("true") = map.get("Terminal").map(String::as_str) {
+                exec = config.terminal.clone() + " " + &exec;
+            }
+            exec
+        });
+        let name = map.get("Name").map(|val| val.to_string());
+        let icon = map.get("Icon").map(|val| {
+            if let Some(icon) = iconmap.get(val) {
+                icon.clone()
+            } else if val.ends_with(PNG_ENDING) {
+                IconVariant::Png(PathBuf::from(val))
+            } else if val.ends_with(SVG_ENDING) {
+                IconVariant::Svg(PathBuf::from(val))
+            } else {
+                IconVariant::Invalid
+            }
+        });
+        let category_entries = map.get("Categories");
+        let keyword_entries = map.get("Keywords");
+        let categories = category_entries
+            .iter()
+            .zip(keyword_entries)
+            .flat_map(|(categories, keywords)| {
+                let mut entries = Vec::new();
+                let category_iter = categories.split(";");
+                let keyword_iter = keywords.split(";");
+                for (category, keyword) in category_iter.zip(keyword_iter) {
+                    entries.push(category.to_string());
+                    entries.push(keyword.to_string());
+                }
+                entries
+            })
+            .collect::<Vec<_>>();
+        match (name, exec) {
+            (None, None) => (),
+            (None, Some(_)) => (),
+            (Some(_), None) => (),
+            (Some(name), Some(exec)) => {
+                entries.insert(
+                    name.clone(),
+                    EntryInfo {
+                        name,
+                        icon,
+                        categories,
+                        exec,
+                    },
+                );
+            }
+        }
     }
 }
 
@@ -253,51 +233,38 @@ fn read_entry_of_dirs(
     path: String,
 ) -> HashMap<String, EntryInfo> {
     let mut entries = HashMap::new();
-    match fs::read_dir(format!("{}/applications", path)) {
-        Ok(files) => {
-            for file_res in files {
-                match file_res {
-                    Ok(file) => {
-                        if file
-                            .file_name()
-                            .to_str()
-                            .unwrap_or_default()
-                            .ends_with(".desktop")
-                        {
-                            read_single_entry(config, iconmap, &mut entries, file);
-                        }
-                    }
-                    Err(_) => (),
-                }
+    if let Ok(files) = fs::read_dir(format!("{path}/applications")) {
+        for file in files.flatten() {
+            if file
+                .file_name()
+                .to_str()
+                .unwrap_or_default()
+                .ends_with(".desktop")
+            {
+                read_single_entry(config, iconmap, &mut entries, file);
             }
         }
-        Err(_) => (),
     };
     entries
 }
 
 pub fn fetch_entries(config: Config) -> (Message, Option<String>) {
-    let dir_iter = DATA_DIRS
-        .into_iter()
-        .map(|val| {
-            let dirs_res = env::var(val);
-            if let Ok(dirs) = dirs_res {
-                dirs.split(":").map(String::from).collect::<Vec<String>>()
-            } else {
-                Vec::new()
-            }
-        })
-        .flatten();
+    let dir_iter = DATA_DIRS.into_iter().flat_map(|val| {
+        let dirs_res = env::var(val);
+        if let Ok(dirs) = dirs_res {
+            dirs.split(":").map(String::from).collect::<Vec<String>>()
+        } else {
+            Vec::new()
+        }
+    });
 
     let iconmap = dir_iter
         .clone()
-        .map(read_icons_per_dir)
-        .flatten()
+        .flat_map(read_icons_per_dir)
         .collect::<HashMap<String, IconVariant>>();
 
     let entries = dir_iter
-        .map(|val| read_entry_of_dirs(&config, &iconmap, val))
-        .flatten()
+        .flat_map(|val| read_entry_of_dirs(&config, &iconmap, val))
         .collect::<HashMap<String, EntryInfo>>()
         .into_values()
         .collect::<Vec<_>>();
@@ -313,27 +280,23 @@ pub fn fetch_entries(config: Config) -> (Message, Option<String>) {
 }
 
 pub fn create_entry_card<'a>(entry: EntryInfo) -> Element<'a, Message> {
-    let icon = entry
-        .icon
-        .as_ref()
-        .map(|icon| match icon {
-            IconVariant::Svg(path_buf) => {
-                let handle = iced::widget::svg::Handle::from_path(path_buf);
-                let widget: Element<Message> = iced::widget::svg(handle)
-                    .height(Length::Fixed(ICON_SIZE))
-                    .width(Length::Fixed(ICON_SIZE))
-                    .into();
-                Some(widget)
-            }
-            IconVariant::Png(path_buf) => Some(
-                iced::widget::image(path_buf)
-                    .height(Length::Fixed(ICON_SIZE))
-                    .width(Length::Fixed(ICON_SIZE))
-                    .into(),
-            ),
-            IconVariant::Invalid => None,
-        })
-        .flatten();
+    let icon = entry.icon.as_ref().and_then(|icon| match icon {
+        IconVariant::Svg(path_buf) => {
+            let handle = iced::widget::svg::Handle::from_path(path_buf);
+            let widget: Element<Message> = iced::widget::svg(handle)
+                .height(Length::Fixed(ICON_SIZE))
+                .width(Length::Fixed(ICON_SIZE))
+                .into();
+            Some(widget)
+        }
+        IconVariant::Png(path_buf) => Some(
+            iced::widget::image(path_buf)
+                .height(Length::Fixed(ICON_SIZE))
+                .width(Length::Fixed(ICON_SIZE))
+                .into(),
+        ),
+        IconVariant::Invalid => None,
+    });
     let content = Row::new().push(icon).push(
         container(
             text(entry.name.clone())
@@ -360,7 +323,7 @@ pub fn sort_appliations(
             for category in entry.categories.iter() {
                 category_scores.push(
                     fuzzy_matcher
-                        .fuzzy_match(&category, &filter_text)
+                        .fuzzy_match(category, &filter_text)
                         .unwrap_or(0),
                 );
             }
@@ -391,7 +354,7 @@ pub async fn to_oxiany_async(msg: Message) -> Arc<dyn OxiAny> {
 pub fn run_command(command: &str) {
     let res = Command::new("sh").arg("-c").arg(command).spawn();
     if let Err(error) = res {
-        panic!("Failed to spawn command: {}", error.to_string());
+        panic!("Failed to spawn command: {error}");
     }
 }
 
@@ -408,7 +371,9 @@ pub extern "C" fn model(
     let config = model.config.clone();
 
     let (entries, entry_error_opt) = fetch_entries(config);
-    entry_error_opt.map(|value| model.errors.push(value));
+    if let Some(value) = entry_error_opt {
+        model.errors.push(value)
+    }
 
     // TODO get config from main app perhaps? if so how? this should only take subkeys
     (
@@ -427,7 +392,7 @@ pub extern "C" fn update(
     let mut model_borrow = model.borrow_mut();
     let model = model_borrow.downcast_mut::<Model>()?;
     let msg_opt = msg.downcast_ref::<Message>();
-    if let None = msg_opt {
+    if msg_opt.is_none() {
         model
             .errors
             .push(String::from("Can't get message in update"));
@@ -476,7 +441,7 @@ pub extern "C" fn launch(
     let mut model_borrow = model.borrow_mut();
     let model = model_borrow.downcast_mut::<Model>()?;
     let exec_opt = &model.sorted_applications.get(focused_index);
-    if let None = exec_opt {
+    if exec_opt.is_none() {
         model.errors.push("Could not get entry for index".into());
         return None;
     }

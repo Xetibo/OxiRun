@@ -24,7 +24,7 @@ mod config;
 mod plugins;
 mod utils;
 
-const CONFIG: Lazy<Table> = Lazy::new(|| get_config());
+static CONFIG: Lazy<Table> = Lazy::new(get_config);
 
 // TODO make this configurable
 const ICON_SIZE: f32 = 50.0;
@@ -36,14 +36,14 @@ const WINDOW_KEYBAORD_MODE: KeyboardInteractivity = KeyboardInteractivity::Exclu
 
 pub fn main() -> Result<(), iced_layershell::Error> {
     let default_anchor = Anchor::empty();
-    let binding = CONFIG;
+    let binding = &CONFIG;
     let anchor_opt = binding.get("anchor");
     let anchor = if let Some(anchor_str) = anchor_opt {
         anchor_from_strings(
             anchor_str
                 .as_array()
                 .unwrap()
-                .into_iter()
+                .iter()
                 .map(|value| value.as_str().unwrap_or("top"))
                 .collect::<Vec<_>>(),
         )
@@ -54,7 +54,7 @@ pub fn main() -> Result<(), iced_layershell::Error> {
         layer_settings: LayerShellSettings {
             size: Some(WINDOW_SIZE),
             exclusive_zone: 0,
-            anchor: anchor,
+            anchor,
             layer: WINDOW_LAYER,
             margin: WINDOW_MARGINS,
             keyboard_interactivity: WINDOW_KEYBAORD_MODE,
@@ -111,12 +111,9 @@ impl TryInto<iced_layershell::actions::LayershellCustomActionWithId> for Message
     }
 }
 
-fn get_plugins(
-    config: &Table,
-) -> (
-    HashMap<usize, (PluginModel, PluginFuncs)>,
-    Vec<Task<Message>>,
-) {
+type PluginMap = HashMap<usize, (PluginModel, PluginFuncs)>;
+
+fn get_plugins(config: &Table) -> (PluginMap, Vec<Task<Message>>) {
     let mut plugins = HashMap::new();
     let mut tasks = Vec::new();
     // TODO make configurable
@@ -124,32 +121,29 @@ fn get_plugins(
     if !plugin_dir.is_dir() {
         std::fs::create_dir(&plugin_dir).expect("Could not create config dir");
     }
-    let allowed_files = get_allowed_plugins(&config);
+    let allowed_files = get_allowed_plugins(config);
     for (index, res) in plugin_dir
         .read_dir()
         .expect("Could not read plugin directory")
         .enumerate()
     {
-        match res {
-            Ok(file) => {
-                if allowed_files.contains(&file.file_name().to_str().unwrap_or("")) {
-                    unsafe {
-                        let lib = Box::leak(Box::new(
-                            libloading::Library::new(&file.path()).expect("Could not load library"),
-                        ));
-                        if let Some(plugin) = load_plugin(lib) {
-                            let (model, task_opt) = (plugin.model.clone())(config.clone());
-                            plugins.insert(index, (model, plugin));
-                            if let Some(task) = task_opt
-                                .map(|val| val.map(move |msg| Message::PluginSubMsg(index, msg)))
-                            {
-                                tasks.push(task)
-                            }
+        if let Ok(file) = res {
+            if allowed_files.contains(&file.file_name().to_str().unwrap_or("")) {
+                unsafe {
+                    let lib = Box::leak(Box::new(
+                        libloading::Library::new(file.path()).expect("Could not load library"),
+                    ));
+                    if let Some(plugin) = load_plugin(lib) {
+                        let (model, task_opt) = (plugin.model.clone())(config.clone());
+                        plugins.insert(index, (model, plugin));
+                        if let Some(task) = task_opt
+                            .map(|val| val.map(move |msg| Message::PluginSubMsg(index, msg)))
+                        {
+                            tasks.push(task)
                         }
                     }
                 }
             }
-            Err(_) => (),
         }
     }
     (plugins, tasks)
@@ -227,10 +221,7 @@ fn error_view<'a>(plugin_name: &'static str, errors: Vec<String>) -> Option<Elem
         return None;
     }
     col = col.push(text(plugin_name));
-    let error_views = errors
-        .into_iter()
-        .map(|value| text(value))
-        .collect::<Vec<_>>();
+    let error_views = errors.into_iter().map(text).collect::<Vec<_>>();
     for error in error_views {
         col = col.push(error);
     }
@@ -292,7 +283,7 @@ impl OxiRun {
         let plugin_views = self
             .plugins
             .iter()
-            .map(|(index, (model, funcs))| {
+            .flat_map(|(index, (model, funcs))| {
                 let view_func = funcs.view.clone();
                 let view_res = unsafe { (view_func)(model.clone()) };
                 match view_res {
@@ -315,7 +306,6 @@ impl OxiRun {
                     Err(_) => Vec::new(),
                 }
             })
-            .flatten()
             .enumerate()
             .map(|(elem_index, val)| content_button(self.current_focus, elem_index, val))
             .collect::<Vec<_>>();
