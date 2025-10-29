@@ -9,11 +9,11 @@ crate-type = ["dylib"]
 [dependencies]
 iced = { version = "0.14.0-dev", features = [
 	"advanced",
+	"tokio",
 	"canvas",
 	"image",
 	"svg",
-	"tokio",
-], git = "https://github.com/iced-rs/iced" }
+], git = "https://github.com/iced-rs/iced", rev="bfc27e4691875840010e3d1e282b8e26b821c569" }
 fuzzy-matcher = "0.3.7"
 oxiced = "0.5.0"
 toml = "0.9.5"

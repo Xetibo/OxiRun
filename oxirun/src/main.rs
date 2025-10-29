@@ -4,10 +4,11 @@ use config::{get_allowed_plugins, get_config, get_oxirun_dir};
 use iced::keyboard::Modifiers;
 use iced::keyboard::key::Named;
 use iced::theme::Style;
+use iced::widget::operation::focus;
 use iced::widget::{Column, Row, button, text};
 use iced::{Element, Length, Subscription, Task, Theme, event};
 use once_cell::sync::Lazy;
-use oxiced::theme::theme::{OXITHEME, get_derived_iced_theme};
+use oxiced::theme::theme_impl::{OXITHEME, get_derived_iced_theme};
 use oxiced::widgets::oxi_button::{self, ButtonVariant};
 use oxiced::widgets::oxi_layer::{layer_theme, rounded_layer};
 use oxiced::widgets::oxi_text_input::text_input;
@@ -28,7 +29,7 @@ static CONFIG: Lazy<Table> = Lazy::new(get_config);
 
 // TODO make this configurable
 const ICON_SIZE: f32 = 50.0;
-const SCALE_FACTOR: f64 = 1.0;
+const SCALE_FACTOR: f32 = 1.0;
 const WINDOW_SIZE: (u32, u32) = (600, 600);
 const WINDOW_MARGINS: (i32, i32, i32, i32) = (100, 100, 100, 100);
 const WINDOW_LAYER: Layer = Layer::Overlay;
@@ -158,8 +159,8 @@ fn content_button(
         .on_press(Message::LaunchEntry(current_index))
         .style(move |theme, status| {
             let is_focused = current_index == focused_index;
-            let palette = OXITHEME;
-            let default_style = oxi_button::neutral_button(theme, status);
+            let palette = &OXITHEME;
+            let default_style = oxi_button::primary_bg_button(theme, status);
             let background = if status == button::Status::Hovered {
                 Some(iced::Background::Color(palette.primary_bg_active))
             } else if is_focused {
@@ -231,7 +232,7 @@ fn error_view<'a>(plugin_name: &'static str, errors: Vec<String>) -> Option<Elem
 impl OxiRun {
     fn new() -> (Self, Task<Message>) {
         let (plugins, mut plugin_tasks) = get_plugins(&CONFIG);
-        plugin_tasks.push(iced::widget::text_input::focus("search_box"));
+        plugin_tasks.push(focus("search_box"));
         (
             Self {
                 _config: CONFIG.to_owned(),
@@ -275,7 +276,7 @@ impl OxiRun {
                     Task::none()
                 }
             },
-            Message::FocusSearch => iced::widget::text_input::focus("search_box"),
+            Message::FocusSearch => focus("search_box"),
         }
     }
 
@@ -372,7 +373,7 @@ impl OxiRun {
         layer_theme()
     }
 
-    fn scale_factor(&self) -> f64 {
+    fn scale_factor(&self) -> f32 {
         SCALE_FACTOR
     }
 }

@@ -31,7 +31,7 @@
 in
   rustPlatform.buildRustPackage rec {
     pname = cargoToml.package.name;
-    version = cargoToml.package.version;
+    inherit (cargoToml.package) version;
 
     src = ../oxirun/.;
 
@@ -48,10 +48,10 @@ in
       inherit lockFile;
       outputHashes = {
         "cryoglyph-0.1.0" = "sha256-Jc+rhzd5BIT7aYBtIfsBFFKkGChdEYhDHdYGiv4KE+c=";
-        "dpi-0.1.1" = "sha256-hlVhlQ8MmIbNFNr6BM4edKdZbe+ixnPpKm819zauFLQ=";
-        "iced-0.14.0-dev" = "sha256-ToInrksjWeUj7yKF4I7/GOD883abHX6WrmADCZrOa80=";
-        "iced_exdevtools-0.14.0-dev" = "sha256-1ncfSYSeHUl59cGchpbXyAh/IB6Mxse6D3P5CLRh9kE=";
-        "oxiced-0.5.1" = "sha256-U8gYs3Xzvso0QdDapOTgR3sPPMDjdPc7jwbI32o3TyE=";
+        "dpi-0.1.1" = "sha256-pQn1lCFSJMkjUfHoggEzMHnm5k+Chnzi5JEDjahnjUA=";
+        "iced-0.14.0-dev" = "sha256-xPTbJw/Zmk2+x/Ojc5Px0LVW8sSxCKggrg3N/O7BBBo=";
+        "iced_exdevtools-0.14.0-dev" = "sha256-EJ9G4EERnJhJ0vhGny8oZC77E2lNzF1y1iCvHhrYsNo=";
+        "oxiced-0.5.1" = "sha256-HpG1SaY+ejwc23N3LFq8gW3A4uqlcwRbumstHrR8XxM=";
       };
     };
 
@@ -83,6 +83,7 @@ in
         libXrandr
         libXi
         libXcursor
+        libclang
       ];
     in ''
       patchelf --set-rpath "${libPath}" "$out/bin/oxirun"
