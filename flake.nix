@@ -37,7 +37,16 @@
               wayland
               pkg-config
               libclang
+              vulkan-loader
+              mesa
             ];
+          driverIcdPath = "${pkgs.mesa}/share/vulkan/icd.d";
+          icdArch =
+            if system == "x86_64-linux"
+            then "x86_64"
+            else if system == "aarch64-linux"
+            then "aarch64"
+            else "x86_64";
         in
           pkgs.mkShell {
             inputsFrom = builtins.attrValues self'.packages;
@@ -51,6 +60,7 @@
             ];
             LD_LIBRARY_PATH = libPath;
             LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+            VK_ICD_FILENAMES = "${driverIcdPath}/radeon_icd.${icdArch}.json:${driverIcdPath}/intel_icd.${icdArch}.json";
           };
 
         packages = let

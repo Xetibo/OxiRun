@@ -47,11 +47,7 @@ in
     cargoLock = {
       inherit lockFile;
       outputHashes = {
-        "cryoglyph-0.1.0" = "sha256-Jc+rhzd5BIT7aYBtIfsBFFKkGChdEYhDHdYGiv4KE+c=";
-        "dpi-0.1.1" = "sha256-pQn1lCFSJMkjUfHoggEzMHnm5k+Chnzi5JEDjahnjUA=";
-        "iced-0.14.0-dev" = "sha256-xPTbJw/Zmk2+x/Ojc5Px0LVW8sSxCKggrg3N/O7BBBo=";
-        "iced_exdevtools-0.14.0-dev" = "sha256-EJ9G4EERnJhJ0vhGny8oZC77E2lNzF1y1iCvHhrYsNo=";
-        "oxiced-0.5.1" = "sha256-HpG1SaY+ejwc23N3LFq8gW3A4uqlcwRbumstHrR8XxM=";
+        "oxiced-0.5.1" = "sha256-XZfjeMqjCVLG89z6XN/Gkb77bUHaQvzD3yJq6eWXgGo=";
       };
     };
 

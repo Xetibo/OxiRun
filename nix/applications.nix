@@ -45,11 +45,6 @@ in
 
     cargoLock = {
       inherit lockFile;
-      outputHashes = {
-        "cryoglyph-0.1.0" = "sha256-Jc+rhzd5BIT7aYBtIfsBFFKkGChdEYhDHdYGiv4KE+c=";
-        "dpi-0.1.1" = "sha256-pQn1lCFSJMkjUfHoggEzMHnm5k+Chnzi5JEDjahnjUA=";
-        "iced-0.14.0-dev" = "sha256-xPTbJw/Zmk2+x/Ojc5Px0LVW8sSxCKggrg3N/O7BBBo=";
-      };
     };
 
     copyLibs = true;

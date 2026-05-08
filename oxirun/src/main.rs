@@ -103,11 +103,11 @@ enum Message {
     FocusSearch,
 }
 
-impl TryInto<iced_layershell::actions::LayershellCustomActionWithId> for Message {
+impl TryInto<iced_layershell::actions::LayerShellCustomActionWithId> for Message {
     type Error = Self;
     fn try_into(
         self,
-    ) -> Result<iced_layershell::actions::LayershellCustomActionWithId, Self::Error> {
+    ) -> Result<iced_layershell::actions::LayerShellCustomActionWithId, Self::Error> {
         Err(self)
     }
 }
@@ -351,6 +351,7 @@ impl OxiRun {
                 physical_key: _,
                 location: _,
                 text: _,
+                repeat: _,
             }) => match key {
                 Named::Escape => Some(Message::Exit),
                 Named::Enter => Some(Message::LaunchFocusedEntry),
