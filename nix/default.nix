@@ -18,6 +18,8 @@
   libXrandr,
   libXi,
   libXcursor,
+  mesa,
+  system,
   ...
 }: let
   cargoToml = builtins.fromTOML (builtins.readFile ../oxirun/Cargo.toml);
@@ -28,6 +30,13 @@
     pkg-config
     libclang
   ];
+  driverIcdPath = "${mesa}/share/vulkan/icd.d";
+  icdArch =
+    if system == "x86_64-linux"
+    then "x86_64"
+    else if system == "aarch64-linux"
+    then "aarch64"
+    else "x86_64";
 in
   rustPlatform.buildRustPackage rec {
     pname = cargoToml.package.name;
@@ -67,6 +76,7 @@ in
     copyLibs = true;
     LD_LIBRARY_PATH = libPath;
     LIBCLANG_PATH = "${libclang.lib}/lib";
+    VK_ICD_FILENAMES = "${driverIcdPath}/radeon_icd.${icdArch}.json:${driverIcdPath}/intel_icd.${icdArch}.json";
 
     postFixup = let
       libPath = lib.makeLibraryPath [
@@ -80,6 +90,7 @@ in
         libXi
         libXcursor
         libclang
+        mesa
       ];
     in ''
       patchelf --set-rpath "${libPath}" "$out/bin/oxirun"

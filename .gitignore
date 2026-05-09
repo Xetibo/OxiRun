@@ -3,3 +3,4 @@ plugins/applications/target
 result
 /result
 /.direnv
+.envrc
