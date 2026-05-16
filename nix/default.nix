@@ -20,6 +20,7 @@
   libXi,
   libXcursor,
   mesa,
+  makeWrapper,
   ...
 }: let
   cargoToml = builtins.fromTOML (builtins.readFile ../oxirun/Cargo.toml);
@@ -71,6 +72,7 @@ in
       libGL
       libxkbcommon
       libclang
+      makeWrapper
     ];
 
     copyLibs = true;
@@ -94,6 +96,8 @@ in
       ];
     in ''
       patchelf --set-rpath "${libPath}" "$out/bin/oxirun"
+      wrapProgram "$out/bin/oxirun" \
+        --set VK_ICD_FILENAMES "${driverIcdPath}/radeon_icd.${icdArch}.json:${driverIcdPath}/intel_icd.${icdArch}.json"
     '';
 
     meta = with lib; {
