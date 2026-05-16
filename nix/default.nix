@@ -1,5 +1,6 @@
 {
   rustPlatform,
+  stdenv,
   pkg-config,
   libGL,
   libxkbcommon,
@@ -19,7 +20,6 @@
   libXi,
   libXcursor,
   mesa,
-  system,
   ...
 }: let
   cargoToml = builtins.fromTOML (builtins.readFile ../oxirun/Cargo.toml);
@@ -32,9 +32,9 @@
   ];
   driverIcdPath = "${mesa}/share/vulkan/icd.d";
   icdArch =
-    if system == "x86_64-linux"
+    if stdenv.hostPlatform.system == "x86_64-linux"
     then "x86_64"
-    else if system == "aarch64-linux"
+    else if stdenv.hostPlatform.system == "aarch64-linux"
     then "aarch64"
     else "x86_64";
 in
@@ -56,7 +56,7 @@ in
     cargoLock = {
       inherit lockFile;
       outputHashes = {
-        "oxiced-0.5.1" = "sha256-XZfjeMqjCVLG89z6XN/Gkb77bUHaQvzD3yJq6eWXgGo=";
+        "oxiced-0.5.1" = "sha256-pjRHbeuQrbN66AAdpZyhOZ5+xr/XssYgk/DLRR0vCk0=";
       };
     };
 

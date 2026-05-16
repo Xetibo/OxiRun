@@ -1499,9 +1499,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
 name = "heck"
@@ -1587,22 +1587,9 @@ dependencies = [
 
 [[package]]
 name = "iced_exdevtools"
-version = "0.17.1"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ebaacc2aec75f830d8a9f74baceb24653f3c495f6b99547c310344ee70b10d5"
-dependencies = [
- "iced_debug",
- "iced_devtools",
- "iced_program",
- "iced_widget",
- "log",
-]
-
-[[package]]
-name = "iced_exdevtools"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93a7620f4e326463f15705b7c08214eb3aee17b3a90085bdfbb6d31651a1b18a"
+checksum = "c7b29378f814a5458c9f1d0bf927d0c42159a9ca0912dc296edd8b267c115b3d"
 dependencies = [
  "iced_debug",
  "iced_devtools",
@@ -1650,50 +1637,23 @@ dependencies = [
 
 [[package]]
 name = "iced_layershell"
-version = "0.17.1"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b629288e1381245534c30d0841ea19137782010906d1150d003efe1d006736e0"
+checksum = "79bb5126427f0d16c37f0336a4c2c800b428c3438e244e75322de8e671b51a5d"
 dependencies = [
  "enumflags2",
  "futures",
  "iced_core",
  "iced_debug",
  "iced_devtools",
- "iced_exdevtools 0.17.1",
+ "iced_exdevtools",
  "iced_futures",
  "iced_graphics",
- "iced_layershell_macros 0.17.1",
+ "iced_layershell_macros",
  "iced_program",
  "iced_renderer",
  "iced_runtime",
- "layershellev 0.17.1",
- "log",
- "mundy",
- "smol_str 0.2.2",
- "thiserror 2.0.18",
- "tracing",
- "window_clipboard",
-]
-
-[[package]]
-name = "iced_layershell"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9af23def8028c786e97b72dc3b596968ad23bca4faa865ec96a134ffe3d71ca"
-dependencies = [
- "enumflags2",
- "futures",
- "iced_core",
- "iced_debug",
- "iced_devtools",
- "iced_exdevtools 0.18.0",
- "iced_futures",
- "iced_graphics",
- "iced_layershell_macros 0.18.0",
- "iced_program",
- "iced_renderer",
- "iced_runtime",
- "layershellev 0.18.0",
+ "layershellev",
  "log",
  "mundy",
  "smol_str 0.2.2",
@@ -1704,22 +1664,9 @@ dependencies = [
 
 [[package]]
 name = "iced_layershell_macros"
-version = "0.17.1"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13df0adbff33e30e56c0aa8603a653425ef1b11ddcad042233730abb85548d87"
-dependencies = [
- "darling",
- "manyhow",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "iced_layershell_macros"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9297f036da65ba1e3abe6d4b69d3f3ace9311166f7e41ce1fccd088ed7998ccf"
+checksum = "9d591978798f06cc6b46fee575174decf7d33e96977829153e104c1b265e7633"
 dependencies = [
  "darling",
  "manyhow",
@@ -1902,7 +1849,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
- "hashbrown 0.17.0",
+ "hashbrown 0.17.1",
  "serde",
  "serde_core",
 ]
@@ -2072,30 +2019,9 @@ dependencies = [
 
 [[package]]
 name = "layershellev"
-version = "0.17.1"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "faa42859f072bea324343a6495368ec7a78d4aed5705b33b6d3d0096d618b3ae"
-dependencies = [
- "calloop 0.14.4",
- "calloop-wayland-source 0.4.1",
- "log",
- "raw-window-handle",
- "tempfile",
- "thiserror 2.0.18",
- "waycrate_xkbkeycode 0.17.1",
- "wayland-backend",
- "wayland-client",
- "wayland-cursor",
- "wayland-protocols",
- "wayland-protocols-misc",
- "wayland-protocols-wlr",
-]
-
-[[package]]
-name = "layershellev"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa93feb9ad2defd5a7420460a8491649cb81709d84cb3759135069624f8ee9a1"
+checksum = "88f48eaa0c702d491d6411620eca91eae3beecc018e79402708f97e1cc948ad8"
 dependencies = [
  "calloop 0.14.4",
  "calloop-wayland-source 0.4.1",
@@ -2104,7 +2030,7 @@ dependencies = [
  "smithay-client-toolkit 0.20.0",
  "tempfile",
  "thiserror 2.0.18",
- "waycrate_xkbkeycode 0.18.0",
+ "waycrate_xkbkeycode",
  "wayland-backend",
  "wayland-client",
  "wayland-cursor",
@@ -3004,10 +2930,10 @@ dependencies = [
 [[package]]
 name = "oxiced"
 version = "0.5.1"
-source = "git+https://github.com/Xetibo/oxiced?branch=iced14#22d86a99ab8f4d62d6f9acca35a336424301fab6"
+source = "git+https://github.com/Xetibo/oxiced?branch=iced14#fb1f9feb7762a395adf63765a3c3630dd026d9d8"
 dependencies = [
  "iced",
- "iced_layershell 0.17.1",
+ "iced_layershell",
  "lilt",
  "once_cell",
  "optional_struct",
@@ -3033,7 +2959,7 @@ version = "0.2.0"
 dependencies = [
  "fuzzy-matcher",
  "iced",
- "iced_layershell 0.18.0",
+ "iced_layershell",
  "libloading",
  "once_cell",
  "optional_struct",
@@ -3099,18 +3025,18 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pin-project"
-version = "1.1.12"
+version = "1.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbf0d9e68100b3a7989b4901972f265cd542e560a3a8a724e1e20322f4d06ce9"
+checksum = "2466b2336ed02bcdca6b294417127b90ec92038d1d5c4fbeac971a922e0e0924"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.12"
+version = "1.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a990e22f43e84855daf260dded30524ef4a9021cc7541c26540500a50b624389"
+checksum = "c96395f0a926bc13b1c17622aaddda1ecb55d49c8f1bf9777e4d877800a43f8b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3303,9 +3229,9 @@ checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
 
 [[package]]
 name = "quick-xml"
-version = "0.39.3"
+version = "0.39.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "721da970c312655cde9b4ffe0547f20a8494866a4af5ff51f18b7c633d0c870b"
+checksum = "cdcc8dd4e2f670d309a5f0e83fe36dfdc05af317008fea29144da1a2ac858e5e"
 dependencies = [
  "memchr",
 ]
@@ -4261,7 +4187,7 @@ dependencies = [
  "indexmap",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
- "winnow 1.0.2",
+ "winnow 1.0.3",
 ]
 
 [[package]]
@@ -4270,7 +4196,7 @@ version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
- "winnow 1.0.2",
+ "winnow 1.0.3",
 ]
 
 [[package]]
@@ -4597,26 +4523,9 @@ dependencies = [
 
 [[package]]
 name = "waycrate_xkbkeycode"
-version = "0.17.1"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9967bea119d19cb19112a4d25b5d6fea7d8252193d37864492e4c6777ab44474"
-dependencies = [
- "calloop 0.14.4",
- "log",
- "memmap2",
- "smol_str 0.2.2",
- "wayland-backend",
- "wayland-client",
- "winit-common",
- "winit-core",
- "xkbcommon-dl",
-]
-
-[[package]]
-name = "waycrate_xkbkeycode"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd5f6c9aeba104eec76c6d84df2f859ee9e15e66daf4cda55a8bd61310a9c6fe"
+checksum = "4e8b2edb13e0c700b910f62ba561c80bd1d5f881dd66efbfe254a221c35ad26c"
 dependencies = [
  "calloop 0.14.4",
  "log",
@@ -5341,9 +5250,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ee1708bef14716a11bae175f579062d4554d95be2c6829f518df847b7b3fdd0"
+checksum = "0592e1c9d151f854e6fd382574c3a0855250e1d9b2f99d9281c6e6391af352f1"
 dependencies = [
  "memchr",
 ]
@@ -5572,7 +5481,7 @@ dependencies = [
  "uds_windows",
  "uuid",
  "windows-sys 0.61.2",
- "winnow 1.0.2",
+ "winnow 1.0.3",
  "zbus_macros",
  "zbus_names",
  "zvariant",
@@ -5600,7 +5509,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7074f3e50b894eac91750142016d30d0a89be8e67dbfd9704fb875825760e52d"
 dependencies = [
  "serde",
- "winnow 1.0.2",
+ "winnow 1.0.3",
  "zvariant",
 ]
 
@@ -5684,7 +5593,7 @@ dependencies = [
  "endi",
  "enumflags2",
  "serde",
- "winnow 1.0.2",
+ "winnow 1.0.3",
  "zvariant_derive",
  "zvariant_utils",
 ]
@@ -5712,5 +5621,5 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "winnow 1.0.2",
+ "winnow 1.0.3",
 ]

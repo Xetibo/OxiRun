@@ -45,6 +45,9 @@ in
 
     cargoLock = {
       inherit lockFile;
+      outputHashes = {
+        "oxiced-0.5.1" = "sha256-pjRHbeuQrbN66AAdpZyhOZ5+xr/XssYgk/DLRR0vCk0=";
+      };
     };
 
     copyLibs = true;
